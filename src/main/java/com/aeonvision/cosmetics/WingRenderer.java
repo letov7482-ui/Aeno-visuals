@@ -17,7 +17,7 @@ public class WingRenderer {
     private float targetFlapSpeed = 0;
 
     public void tick(PlayerEntity player, WingType type, float moveSpeed) {
-        targetFlapSpeed = moveSpeed > 0.1f ? 0.15f : 0.03f;
+        targetFlapSpeed = moveSpeed > 0.1f ? 0.15f : 0.04f;
         flapSpeed += (targetFlapSpeed - flapSpeed) * 0.1f;
         flapTime += flapSpeed;
     }
@@ -30,10 +30,10 @@ public class WingRenderer {
         Vec3d camPos = camera.getPos();
         
         double px = MC.player.getX() - camPos.x;
-        double py = MC.player.getY() + 1.2 - camPos.y; // Чуть выше центра
+        double py = MC.player.getY() + 1.2 - camPos.y;
         double pz = MC.player.getZ() - camPos.z;
         
-        float bodyYaw = (float)Math.toRadians(-MC.player.getYaw() + 180);
+        float bodyYaw = (float)Math.toRadians(-MC.player.interpolatedYaw + 180);
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -48,11 +48,12 @@ public class WingRenderer {
         matrices.translate(px, py, pz);
         matrices.multiply(new org.joml.Quaternionf().rotateY(bodyYaw));
         
-        float flap = MathHelper.sin(flapTime) * 25f;
+        // Анимация взмаха
+        float flap = MathHelper.sin(flapTime) * 30f;
         
-        // Рисуем оба крыла
-        drawWing(matrices, buffer, tessellator, true, flap);  // Правое
-        drawWing(matrices, buffer, tessellator, false, flap); // Левое
+        // Рисуем правое и левое крыло
+        drawWing(matrices, buffer, tessellator, true, flap);
+        drawWing(matrices, buffer, tessellator, false, flap);
         
         matrices.pop();
         
@@ -67,28 +68,48 @@ public class WingRenderer {
         
         float dir = isRight ? 1 : -1;
         matrices.multiply(new org.joml.Quaternionf().rotateZ((float)Math.toRadians(flap * dir)));
-        matrices.multiply(new org.joml.Quaternionf().rotateY((float)Math.toRadians(20 * dir)));
+        matrices.multiply(new org.joml.Quaternionf().rotateY((float)Math.toRadians(25 * dir)));
         
         Matrix4f mat = matrices.peek().getPositionMatrix();
         
-        // Форма крыла (треугольники)
-        float wingLength = 1.5f;
-        float wingWidth = 0.6f;
-        float alpha = 0.6f;
-        
-        float[] color = {0.9f, 0.9f, 1.0f}; // Белые (ангельские)
+        float wingLength = 1.6f;
+        float alpha = 0.65f;
+        float[] color = {0.95f, 0.95f, 1.0f}; // Ангельские (дефолт)
         
         buffer.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         
-        // Основная часть крыла
-        buffer.vertex(mat, 0, 0, 0).color(color[0], color[1], color[2], alpha).next();
-        buffer.vertex(mat, -wingLength * dir, -0.3f, -0.3f * dir).color(color[0], color[1], color[2], alpha * 0.5f).next();
-        buffer.vertex(mat, -wingLength * dir, 0.5f, 0).color(color[0], color[1], color[2], alpha * 0.7f).next();
+        // Верхняя часть крыла
+        buffer.vertex(mat, 0, 0.1f, 0).color(color[0], color[1], color[2], alpha).next();
+        buffer.vertex(mat, -wingLength * dir, -0.2f, -0.4f * dir).color(color[0], color[1], color[2], alpha * 0.4f).next();
+        buffer.vertex(mat, -wingLength * dir, 0.6f, -0.1f * dir).color(color[0], color[1], color[2], alpha * 0.7f).next();
         
-        buffer.vertex(mat, 0, 0, 0).color(color[0], color[1], color[2], alpha).next();
-        buffer.vertex(mat, -wingLength * dir, 0.5f, 0).color(color[0], color[1], color[2], alpha * 0.7f).next();
-        buffer.vertex(mat, -wingLength * dir * 0.7f, 0.8f, 0.1f * dir).color(color[0], color[1], color[2], alpha * 0.3f).next();
+        // Средняя часть
+        buffer.vertex(mat, 0, 0.1f, 0).color(color[0], color[1], color[2], alpha).next();
+        buffer.vertex(mat, -wingLength * dir, 0.6f, -0.1f * dir).color(color[0], color[1], color[2], alpha * 0.7f).next();
+        buffer.vertex(mat, -wingLength * 0.7f * dir, 0.9f, 0.15f * dir).color(color[0], color[1], color[2], alpha * 0.25f).next();
         
         // Нижняя часть
-        buffer.vertex(mat, 0, -0.1f, 0).color(color[0], color[1], color[2], alpha).next();
-        buffer.vertex(mat, -wingLength * 0.8f * dir, -
+        buffer.vertex(mat, 0, -0.1f, 0).color(color[0], color[1], color[2], alpha * 0.8f).next();
+        buffer.vertex(mat, -wingLength * 0.9f * dir, -0.5f, -0.2f * dir).color(color[0], color[1], color[2], alpha * 0.3f).next();
+        buffer.vertex(mat, -wingLength * 0.6f * dir, 0.0f, -0.3f * dir).color(color[0], color[1], color[2], alpha * 0.5f).next();
+        
+        tessellator.draw();
+        
+        // Перья (маленькие треугольники по краю)
+        buffer.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        for (int i = 0; i < 6; i++) {
+            float t = (i + 1) / 7f;
+            float featherX = -wingLength * dir * t;
+            float featherY = 0.5f * t;
+            float featherZ = -0.1f * dir * t;
+            float featherSize = 0.15f * (1 - t * 0.7f);
+            
+            buffer.vertex(mat, featherX, featherY, featherZ).color(color[0], color[1], color[2], alpha * 0.8f).next();
+            buffer.vertex(mat, featherX + 0.1f * dir, featherY + featherSize, featherZ).color(color[0], color[1], color[2], alpha * 0.2f).next();
+            buffer.vertex(mat, featherX - 0.05f * dir, featherY - featherSize * 0.5f, featherZ + 0.1f * dir).color(color[0], color[1], color[2], alpha * 0.2f).next();
+        }
+        tessellator.draw();
+        
+        matrices.pop();
+    }
+}
