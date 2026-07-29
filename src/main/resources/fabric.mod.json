@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "aeonvision",
+  "version": "${version}",
+  "name": "Æon Vision",
+  "description": "Новая эра визуалов. Плавность и красота относится к Æon Vision.",
+  "authors": [
+    "Æon Team-Midpoint"
+  ],
+  "contact": {
+    "homepage": "https://github.com/aeonvision",
+    "sources": "https://github.com/aeonvision/aeonvision"
+  },
+  "license": "All Rights Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.aeonvision.AeonVisionMod"
+    ],
+    "client": [
+      "com.aeonvision.AeonVisionClient"
+    ]
+  },
+  "mixins": [
+    "aeonvision.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.discord": "https://discord.gg/aeonvision"
+      },
+      "badges": ["library"],
+      "update_checker": false
+    }
+  }
+}
