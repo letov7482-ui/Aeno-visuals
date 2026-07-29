@@ -59,8 +59,7 @@ public class CosmeticManager {
         }
         footprintRenderer.tick();
         
-        // Kill tracking (1.21.4 way)
-        int currentKills = player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.MOB_KILLS));
+        int currentKills = MC.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.MOB_KILLS));
         if (currentKills > lastKillCount) {
             lastKillCount = currentKills;
             if (activeKillEffect != KillEffectType.NONE)
@@ -94,4 +93,4 @@ public class CosmeticManager {
     public KillEffectType getKillEffect() { return activeKillEffect; }
     public void setAuraColor(float r, float g, float b) { auraColor = new float[]{r,g,b}; }
     public float[] getAuraColor() { return auraColor; }
-}
+        }
