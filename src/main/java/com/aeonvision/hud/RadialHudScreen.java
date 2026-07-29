@@ -1,6 +1,8 @@
 package com.aeonvision.hud;
 
+import com.aeonvision.AeonVisionClient;
 import com.aeonvision.keybind.KeyBindManager;
+import com.aeonvision.cosmetics.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -9,118 +11,220 @@ import net.minecraft.util.math.MathHelper;
 import java.util.*;
 
 public class RadialHudScreen extends Screen {
+
     private static final MinecraftClient MC = MinecraftClient.getInstance();
     
     private static class Sector {
-        String name, icon; int cx, cy; float sa, ea; boolean hov; Runnable act;
-        Sector(String n, String i, Runnable a){name=n;icon=i;act=a;}
+        String name, icon;
+        Runnable action;
+        
+        Sector(String name, String icon, Runnable action) {
+            this.name = name;
+            this.icon = icon;
+            this.action = action;
+        }
     }
     
     private List<Sector> sectors = new ArrayList<>();
-    private int cx, cy, outer=90, inner=30;
-    private float time=0;
+    private int cx, cy;
+    private int outerR = 90, innerR = 30;
+    private float time = 0;
 
-    public RadialHudScreen(){super(Text.literal("Æon Vision HUD"));}
+    public RadialHudScreen() {
+        super(Text.literal("Æon Vision HUD"));
+    }
 
     @Override
-    protected void init(){
-        cx=width/2; cy=height/2;
+    protected void init() {
+        cx = width / 2;
+        cy = height / 2;
+        
         sectors.clear();
-        sectors.add(new Sector("Косметика","✦",()->MC.setScreen(new com.aeonvision.ui.CosmeticScreen())));
-        sectors.add(new Sector("Утилиты","⚙",()->MC.setScreen(new com.aeonvision.ui.UtilsScreen())));
-        sectors.add(new Sector("Визуалы","◈",()->MC.setScreen(new com.aeonvision.ui.VisualsScreen())));
-        sectors.add(new Sector("Миры","⬡",()->MC.setScreen(new com.aeonvision.ui.WorldManagerScreen())));
-        sectors.add(new Sector("Серверы","⬢",()->MC.setScreen(new com.aeonvision.ui.ServerManagerScreen())));
-        sectors.add(new Sector("Аккаунты","◉",()->MC.setScreen(new com.aeonvision.accounts.AccountManagerScreen())));
-        float aps=360f/sectors.size();
-        for(int i=0;i<sectors.size();i++){Sector s=sectors.get(i); s.cx=cx; s.cy=cy; s.sa=i*aps-90; s.ea=(i+1)*aps-90;}
+        
+        // Косметика — переключение по кругу
+        sectors.add(new Sector("Шлейф", "✦", () -> {
+            AeonVisionClient.COSMETICS.nextTrail();
+            MC.player.sendMessage(Text.literal("§aШлейф: " + AeonVisionClient.COSMETICS.getTrail().name), true);
+        }));
+        
+        sectors.add(new Sector("Аура", "◎", () -> {
+            AeonVisionClient.COSMETICS.nextAura();
+            MC.player.sendMessage(Text.literal("§aАура: " + AeonVisionClient.COSMETICS.getAura().name), true);
+        }));
+        
+        sectors.add(new Sector("Крылья", "🕊", () -> {
+            AeonVisionClient.COSMETICS.nextWings();
+            MC.player.sendMessage(Text.literal("§aКрылья: " + AeonVisionClient.COSMETICS.getWings().name), true);
+        }));
+        
+        // Утилиты — вкл/выкл
+        sectors.add(new Sector("Зум", "🔍", () -> {
+            AeonVisionClient.ZOOM.toggle();
+            MC.player.sendMessage(Text.literal(AeonVisionClient.ZOOM.isZooming() ? "§aЗум ВКЛ" : "§7Зум ВЫКЛ"), true);
+        }));
+        
+        sectors.add(new Sector("Ночь", "🌙", () -> {
+            AeonVisionClient.NIGHT_VISION.toggle();
+            MC.player.sendMessage(Text.literal(AeonVisionClient.NIGHT_VISION.isEnabled() ? "§aНочное зрение ВКЛ" : "§7Ночное зрение ВЫКЛ"), true);
+        }));
+        
+        sectors.add(new Sector("Компас", "🧭", () -> {
+            AeonVisionClient.COMPASS.toggle();
+            MC.player.sendMessage(Text.literal(AeonVisionClient.COMPASS.isVisible() ? "§aКомпас ВКЛ" : "§7Компас ВЫКЛ"), true);
+        }));
+        
+        sectors.add(new Sector("Коорд.", "📍", () -> {
+            AeonVisionClient.COORDS.toggle();
+            MC.player.sendMessage(Text.literal(AeonVisionClient.COORDS.isVisible() ? "§aКоординаты ВКЛ" : "§7Координаты ВЫКЛ"), true);
+        }));
+        
+        sectors.add(new Sector("Меню", "☰", () -> {
+            MC.setScreen(new com.aeonvision.ui.ClickGuiScreen());
+        }));
     }
 
     @Override
-    public void render(DrawContext ctx, int mx, int my, float d){
-        time+=d;
-        ctx.fill(0,0,width,height,0x80000000);
-        for(Sector s:sectors){s.hov=inSector(mx,my,s); drawSector(ctx,s);}
-        drawCenter(ctx);
-        Sector hov=sectors.stream().filter(s->s.hov).findFirst().orElse(null);
-        if(hov!=null){
-            ctx.drawText(textRenderer,Text.literal(hov.name),cx-textRenderer.getWidth(hov.name)/2,cy+outer+20,0xFFFFFFFF,true);
-            ctx.drawText(textRenderer,Text.literal(hov.icon),cx-textRenderer.getWidth(hov.icon)/2,cy-60,0xFFFFFFFF,true);
+    public void render(DrawContext ctx, int mx, int my, float delta) {
+        time += delta;
+        
+        // Затемнение фона
+        ctx.fill(0, 0, width, height, 0x80000000);
+        
+        float aps = 360f / sectors.size();
+        
+        // Рисуем сектора
+        for (int i = 0; i < sectors.size(); i++) {
+            Sector s = sectors.get(i);
+            float sa = i * aps - 90;
+            float ea = (i + 1) * aps - 90;
+            boolean hov = isInSector(mx, my, sa, ea);
+            
+            int baseColor = hov ? 0x60FFFFFF : 0x20FFFFFF;
+            int borderColor = hov ? 0xFFFFFFFF : 0x40FFFFFF;
+            
+            // Рисуем сектор
+            for (int j = 0; j < 32; j++) {
+                float a1 = (float)Math.toRadians(sa + (ea - sa) * j / 32);
+                float a2 = (float)Math.toRadians(sa + (ea - sa) * (j + 1) / 32);
+                
+                int x1 = cx + (int)(Math.cos(a1) * innerR);
+                int y1 = cy + (int)(Math.sin(a1) * innerR);
+                int x2 = cx + (int)(Math.cos(a1) * outerR);
+                int y2 = cy + (int)(Math.sin(a1) * outerR);
+                int x3 = cx + (int)(Math.cos(a2) * outerR);
+                int y3 = cy + (int)(Math.sin(a2) * outerR);
+                int x4 = cx + (int)(Math.cos(a2) * innerR);
+                int y4 = cy + (int)(Math.sin(a2) * innerR);
+                
+                fillTri(ctx, x1, y1, x2, y2, x3, y3, baseColor);
+                fillTri(ctx, x1, y1, x3, y3, x4, y4, baseColor);
+            }
+            
+            // Иконка
+            float ma = (sa + ea) / 2f;
+            float ia = (float)Math.toRadians(ma);
+            int id = (innerR + outerR) / 2;
+            int ix = cx + (int)(Math.cos(ia) * id);
+            int iy = cy + (int)(Math.sin(ia) * id);
+            
+            ctx.drawText(textRenderer, Text.literal(s.icon),
+                ix - textRenderer.getWidth(s.icon)/2,
+                iy - textRenderer.fontHeight/2,
+                hov ? 0xFFFFFFFF : 0xA0FFFFFF, false);
         }
-        String ins="Наведи на сектор и отпусти Shift";
-        ctx.drawText(textRenderer,Text.literal(ins),cx-textRenderer.getWidth(ins)/2,height-30,0x60FFFFFF,false);
-    }
-
-    private void drawSector(DrawContext ctx, Sector s){
-        int seg=32; float ma=(s.sa+s.ea)/2, ia=(float)Math.toRadians(ma);
-        int bc=s.hov?0x60FFFFFF:0x20FFFFFF, lc=s.hov?0xFFFFFFFF:0x40FFFFFF;
-        for(int i=0;i<seg;i++){
-            float a1=(float)Math.toRadians(s.sa+(s.ea-s.sa)*i/seg), a2=(float)Math.toRadians(s.sa+(s.ea-s.sa)*(i+1)/seg);
-            int x1=cx+(int)(Math.cos(a1)*inner), y1=cy+(int)(Math.sin(a1)*inner);
-            int x2=cx+(int)(Math.cos(a1)*outer), y2=cy+(int)(Math.sin(a1)*outer);
-            int x3=cx+(int)(Math.cos(a2)*outer), y3=cy+(int)(Math.sin(a2)*outer);
-            int x4=cx+(int)(Math.cos(a2)*inner), y4=cy+(int)(Math.sin(a2)*inner);
-            fillTri(ctx,x1,y1,x2,y2,x3,y3,bc); fillTri(ctx,x1,y1,x3,y3,x4,y4,bc);
+        
+        // Центр
+        drawCircle(ctx, cx, cy, innerR, 0x40FFFFFF);
+        String logo = "Æ";
+        ctx.drawText(textRenderer, Text.literal(logo),
+            cx - textRenderer.getWidth(logo)/2,
+            cy - textRenderer.fontHeight/2, 0xFFFFFFFF, false);
+        
+        // Подсказка
+        Sector hov = null;
+        float apsCheck = 360f / sectors.size();
+        for (int i = 0; i < sectors.size(); i++) {
+            float sa = i * apsCheck - 90;
+            float ea = (i + 1) * apsCheck - 90;
+            if (isInSector(mx, my, sa, ea)) {
+                hov = sectors.get(i);
+                break;
+            }
         }
-        int id=(inner+outer)/2, ix=cx+(int)(Math.cos(ia)*id), iy=cy+(int)(Math.sin(ia)*id);
-        ctx.drawText(textRenderer,Text.literal(s.icon),ix-textRenderer.getWidth(s.icon)/2,iy-textRenderer.fontHeight/2,s.hov?0xFFFFFFFF:0xA0FFFFFF,false);
-        // Линии через fill вместо drawLine
-        int bx1=cx+(int)(Math.cos(Math.toRadians(s.sa))*outer), by1=cy+(int)(Math.sin(Math.toRadians(s.sa))*outer);
-        drawLineFill(ctx,cx,cy,bx1,by1,lc);
-        int bx2=cx+(int)(Math.cos(Math.toRadians(s.ea))*outer), by2=cy+(int)(Math.sin(Math.toRadians(s.ea))*outer);
-        drawLineFill(ctx,cx,cy,bx2,by2,lc);
-    }
-
-    private void drawLineFill(DrawContext ctx, int x1, int y1, int x2, int y2, int color){
-        int dx=Math.abs(x2-x1), dy=Math.abs(y2-y1), sx=x1<x2?1:-1, sy=y1<y2?1:-1, err=dx-dy;
-        while(true){
-            ctx.fill(x1,y1,x1+1,y1+1,color);
-            if(x1==x2&&y1==y2)break;
-            int e2=2*err;
-            if(e2>-dy){err-=dy; x1+=sx;}
-            if(e2<dx){err+=dx; y1+=sy;}
+        
+        if (hov != null) {
+            ctx.drawText(textRenderer, Text.literal(hov.name),
+                cx - textRenderer.getWidth(hov.name)/2, cy + outerR + 20, 0xFFFFFFFF, true);
         }
+        
+        String hint = "Выбери действие → отпусти Shift";
+        ctx.drawText(textRenderer, Text.literal(hint),
+            cx - textRenderer.getWidth(hint)/2, height - 30, 0x60FFFFFF, false);
     }
 
-    private void drawCenter(DrawContext ctx){
-        drawCircle(ctx,cx,cy,inner,0x40FFFFFF);
-        String logo="Æ"; ctx.drawText(textRenderer,Text.literal(logo),cx-textRenderer.getWidth(logo)/2,cy-textRenderer.fontHeight/2,0xFFFFFFFF,false);
-        float pulse=1+MathHelper.sin(time*3f)*0.1f;
-        drawCircle(ctx,cx,cy,(int)(inner*pulse),0x30FFFFFF);
-    }
-
-    private boolean inSector(int mx, int my, Sector s){
-        float dx=mx-cx, dy=my-cy, dist=(float)Math.sqrt(dx*dx+dy*dy);
-        if(dist<inner||dist>outer)return false;
-        float ang=(float)Math.toDegrees(Math.atan2(dy,dx)); if(ang<-90)ang+=360;
-        float st=s.sa, en=s.ea;
-        return st>en?ang>=st||ang<=en:ang>=st&&ang<=en;
+    private boolean isInSector(int mx, int my, float sa, float ea) {
+        float dx = mx - cx;
+        float dy = my - cy;
+        float dist = (float)Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < innerR || dist > outerR) return false;
+        
+        float ang = (float)Math.toDegrees(Math.atan2(dy, dx));
+        if (ang < -90) ang += 360;
+        
+        if (sa > ea) return ang >= sa || ang <= ea;
+        return ang >= sa && ang <= ea;
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int btn){
-        for(Sector s:sectors)if(inSector((int)mx,(int)my,s)){s.act.run(); close(); return true;}
-        close(); return true;
+    public boolean mouseReleased(double mx, double my, int btn) {
+        float aps = 360f / sectors.size();
+        for (int i = 0; i < sectors.size(); i++) {
+            float sa = i * aps - 90;
+            float ea = (i + 1) * aps - 90;
+            if (isInSector((int)mx, (int)my, sa, ea)) {
+                sectors.get(i).action.run();
+                close();
+                return true;
+            }
+        }
+        close();
+        return true;
     }
 
-    @Override public void close(){super.close(); KeyBindManager.closeHudPanel2();}
-    @Override public boolean shouldPause(){return false;}
-
-    private void fillTri(DrawContext ctx, int x1, int y1, int x2, int y2, int x3, int y3, int c){
-        int mnX=Math.min(x1,Math.min(x2,x3)), mxX=Math.max(x1,Math.max(x2,x3));
-        int mnY=Math.min(y1,Math.min(y2,y3)), mxY=Math.max(y1,Math.max(y2,y3));
-        for(int x=mnX;x<=mxX;x++)for(int y=mnY;y<=mxY;y++)if(ptInTri(x,y,x1,y1,x2,y2,x3,y3))ctx.fill(x,y,x+1,y+1,c);
+    @Override
+    public void close() {
+        super.close();
+        KeyBindManager.closeHudPanel2();
     }
 
-    private boolean ptInTri(int px,int py,int x1,int y1,int x2,int y2,int x3,int y3){
-        float d1=sign(px,py,x1,y1,x2,y2), d2=sign(px,py,x2,y2,x3,y3), d3=sign(px,py,x3,y3,x1,y1);
-        boolean hn=(d1<0)||(d2<0)||(d3<0), hp=(d1>0)||(d2>0)||(d3>0);
-        return!(hn&&hp);
+    @Override
+    public boolean shouldPause() { return false; }
+
+    // Хелперы
+    private void fillTri(DrawContext ctx, int x1, int y1, int x2, int y2, int x3, int y3, int c) {
+        int mnX = Math.min(x1, Math.min(x2, x3));
+        int mxX = Math.max(x1, Math.max(x2, x3));
+        int mnY = Math.min(y1, Math.min(y2, y3));
+        int mxY = Math.max(y1, Math.max(y2, y3));
+        for (int x = mnX; x <= mxX; x++)
+            for (int y = mnY; y <= mxY; y++)
+                if (ptInTri(x, y, x1, y1, x2, y2, x3, y3))
+                    ctx.fill(x, y, x+1, y+1, c);
     }
 
-    private float sign(int px,int py,int x1,int y1,int x2,int y2){return(px-x2)*(y1-y2)-(x1-x2)*(py-y2);}
-
-    private void drawCircle(DrawContext ctx, int cx, int cy, int r, int c){
-        for(int x=-r;x<=r;x++)for(int y=-r;y<=r;y++){int d=x*x+y*y; if(d<=r*r&&d>=(r-1)*(r-1))ctx.fill(cx+x,cy+y,cx+x+1,cy+y+1,c);}
+    private boolean ptInTri(int px, int py, int x1, int y1, int x2, int y2, int x3, int y3) {
+        float d1 = (px-x2)*(y1-y2) - (x1-x2)*(py-y2);
+        float d2 = (px-x3)*(y2-y3) - (x2-x3)*(py-y3);
+        float d3 = (px-x1)*(y3-y1) - (x3-x1)*(py-y1);
+        boolean hn = (d1<0)||(d2<0)||(d3<0), hp = (d1>0)||(d2>0)||(d3>0);
+        return !(hn && hp);
     }
-                }
+
+    private void drawCircle(DrawContext ctx, int cx, int cy, int r, int c) {
+        for (int x=-r; x<=r; x++)
+            for (int y=-r; y<=r; y++)
+                if (x*x+y*y <= r*r && x*x+y*y >= (r-1)*(r-1))
+                    ctx.fill(cx+x, cy+y, cx+x+1, cy+y+1, c);
+    }
+    }
