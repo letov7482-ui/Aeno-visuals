@@ -9,6 +9,7 @@ import net.minecraft.util.math.Vec3d;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 public class WingRenderer {
     private final MinecraftClient MC = MinecraftClient.getInstance();
@@ -33,27 +34,19 @@ public class WingRenderer {
         double py = MC.player.getY() + 1.2 - camPos.y;
         double pz = MC.player.getZ() - camPos.z;
         
-        float bodyYaw = (float)Math.toRadians(-MC.player.interpolatedYaw + 180);
+        float bodyYaw = (float)Math.toRadians(-MC.player.getYaw() + 180);
+        float flap = MathHelper.sin(flapTime) * 30f;
         
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
         
         matrices.push();
         matrices.translate(px, py, pz);
-        matrices.multiply(new org.joml.Quaternionf().rotateY(bodyYaw));
         
-        // Анимация взмаха
-        float flap = MathHelper.sin(flapTime) * 30f;
-        
-        // Рисуем правое и левое крыло
-        drawWing(matrices, buffer, tessellator, true, flap);
-        drawWing(matrices, buffer, tessellator, false, flap);
+        drawWing(matrices, true, flap, bodyYaw);
+        drawWing(matrices, false, flap, bodyYaw);
         
         matrices.pop();
         
@@ -62,53 +55,36 @@ public class WingRenderer {
         RenderSystem.disableBlend();
     }
 
-    private void drawWing(MatrixStack matrices, BufferBuilder buffer, Tessellator tessellator, 
-                         boolean isRight, float flap) {
+    private void drawWing(MatrixStack matrices, boolean isRight, float flap, float bodyYaw) {
         matrices.push();
         
         float dir = isRight ? 1 : -1;
-        matrices.multiply(new org.joml.Quaternionf().rotateZ((float)Math.toRadians(flap * dir)));
-        matrices.multiply(new org.joml.Quaternionf().rotateY((float)Math.toRadians(25 * dir)));
+        matrices.multiply(new Quaternionf().rotateY(bodyYaw));
+        matrices.multiply(new Quaternionf().rotateZ((float)Math.toRadians(flap * dir)));
+        matrices.multiply(new Quaternionf().rotateY((float)Math.toRadians(25 * dir)));
         
-        Matrix4f mat = matrices.peek().getPositionMatrix();
-        
+        Matrix4f matrix = matrices.peek().getPositionMatrix();
         float wingLength = 1.6f;
         float alpha = 0.65f;
-        float[] color = {0.95f, 0.95f, 1.0f}; // Ангельские (дефолт)
+        int r = 240, g = 240, b = 255;
         
-        buffer.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buffer = tess.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         
-        // Верхняя часть крыла
-        buffer.vertex(mat, 0, 0.1f, 0).color(color[0], color[1], color[2], alpha).next();
-        buffer.vertex(mat, -wingLength * dir, -0.2f, -0.4f * dir).color(color[0], color[1], color[2], alpha * 0.4f).next();
-        buffer.vertex(mat, -wingLength * dir, 0.6f, -0.1f * dir).color(color[0], color[1], color[2], alpha * 0.7f).next();
+        int c1 = ((int)(alpha*255)<<24) | (r<<16) | (g<<8) | b;
+        int c2 = ((int)(alpha*0.4f*255)<<24) | (r<<16) | (g<<8) | b;
+        int c3 = ((int)(alpha*0.7f*255)<<24) | (r<<16) | (g<<8) | b;
+        int c4 = ((int)(alpha*0.25f*255)<<24) | (r<<16) | (g<<8) | b;
         
-        // Средняя часть
-        buffer.vertex(mat, 0, 0.1f, 0).color(color[0], color[1], color[2], alpha).next();
-        buffer.vertex(mat, -wingLength * dir, 0.6f, -0.1f * dir).color(color[0], color[1], color[2], alpha * 0.7f).next();
-        buffer.vertex(mat, -wingLength * 0.7f * dir, 0.9f, 0.15f * dir).color(color[0], color[1], color[2], alpha * 0.25f).next();
+        buffer.vertex(matrix, 0, 0.1f, 0).color(c1);
+        buffer.vertex(matrix, -wingLength * dir, -0.2f, -0.4f * dir).color(c2);
+        buffer.vertex(matrix, -wingLength * dir, 0.6f, -0.1f * dir).color(c3);
         
-        // Нижняя часть
-        buffer.vertex(mat, 0, -0.1f, 0).color(color[0], color[1], color[2], alpha * 0.8f).next();
-        buffer.vertex(mat, -wingLength * 0.9f * dir, -0.5f, -0.2f * dir).color(color[0], color[1], color[2], alpha * 0.3f).next();
-        buffer.vertex(mat, -wingLength * 0.6f * dir, 0.0f, -0.3f * dir).color(color[0], color[1], color[2], alpha * 0.5f).next();
+        buffer.vertex(matrix, 0, 0.1f, 0).color(c1);
+        buffer.vertex(matrix, -wingLength * dir, 0.6f, -0.1f * dir).color(c3);
+        buffer.vertex(matrix, -wingLength * 0.7f * dir, 0.9f, 0.15f * dir).color(c4);
         
-        tessellator.draw();
-        
-        // Перья (маленькие треугольники по краю)
-        buffer.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
-        for (int i = 0; i < 6; i++) {
-            float t = (i + 1) / 7f;
-            float featherX = -wingLength * dir * t;
-            float featherY = 0.5f * t;
-            float featherZ = -0.1f * dir * t;
-            float featherSize = 0.15f * (1 - t * 0.7f);
-            
-            buffer.vertex(mat, featherX, featherY, featherZ).color(color[0], color[1], color[2], alpha * 0.8f).next();
-            buffer.vertex(mat, featherX + 0.1f * dir, featherY + featherSize, featherZ).color(color[0], color[1], color[2], alpha * 0.2f).next();
-            buffer.vertex(mat, featherX - 0.05f * dir, featherY - featherSize * 0.5f, featherZ + 0.1f * dir).color(color[0], color[1], color[2], alpha * 0.2f).next();
-        }
-        tessellator.draw();
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
         
         matrices.pop();
     }
