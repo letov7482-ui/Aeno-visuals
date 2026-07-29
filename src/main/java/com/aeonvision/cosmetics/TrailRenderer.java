@@ -4,12 +4,11 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import java.util.*;
 
 public class TrailRenderer {
@@ -55,11 +54,8 @@ public class TrailRenderer {
         if (now - lastSpawnTime < spawnRate) return;
         lastSpawnTime = now;
         
-        if (particles.size() >= MAX_PARTICLES) {
-            particles.remove(0);
-        }
+        if (particles.size() >= MAX_PARTICLES) particles.remove(0);
         
-        // Спавним позади игрока
         float yaw = (float)Math.toRadians(-player.getYaw());
         double behindX = -Math.sin(yaw) * 0.3;
         double behindZ = Math.cos(yaw) * 0.3;
@@ -71,38 +67,38 @@ public class TrailRenderer {
             type, color
         );
         
-        // Настройки под тип
         switch(type) {
-            case FIRE:
+            case FIRE -> {
                 p.velocityY = 0.05f + (float)Math.random() * 0.1f;
                 p.size = 0.15f + (float)Math.random() * 0.2f;
                 p.maxLife = 0.5f + (float)Math.random() * 0.3f;
                 p.color = new float[]{1.0f, 0.5f + (float)Math.random() * 0.3f, 0.0f};
-                break;
-            case SAKURA:
+            }
+            case SAKURA -> {
                 p.velocityY = -0.01f - (float)Math.random() * 0.02f;
                 p.size = 0.08f;
                 p.maxLife = 2.0f + (float)Math.random();
                 p.color = new float[]{1.0f, 0.7f, 0.85f};
-                break;
-            case ELECTRIC:
+            }
+            case ELECTRIC -> {
                 p.maxLife = 0.2f;
                 p.size = 0.05f;
                 p.color = new float[]{0.4f, 0.8f, 1.0f};
-                break;
-            case ENDER:
+            }
+            case ENDER -> {
                 p.color = new float[]{0.6f, 0.2f, 1.0f};
                 p.maxLife = 0.8f;
-                break;
-            case AQUA:
+            }
+            case AQUA -> {
                 p.velocityY = -0.03f;
                 p.color = new float[]{0.2f, 0.6f, 1.0f};
-                break;
-            case SCULK:
+            }
+            case SCULK -> {
                 p.color = new float[]{0.1f, 0.3f, 0.2f};
                 p.maxLife = 1.5f;
                 p.size = 0.2f;
-                break;
+            }
+            default -> {}
         }
         
         particles.add(p);
@@ -119,7 +115,6 @@ public class TrailRenderer {
                 p.x += Math.sin(p.life * 5 + p.randomOffset) * 0.02;
                 p.z += Math.cos(p.life * 5 + p.randomOffset) * 0.02;
             }
-            
             if (p.type == TrailType.ELECTRIC) {
                 p.x += (Math.random() - 0.5) * 0.3;
                 p.z += (Math.random() - 0.5) * 0.3;
@@ -141,9 +136,6 @@ public class TrailRenderer {
         RenderSystem.disableCull();
         RenderSystem.depthMask(false);
         
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-        
         for (TrailParticle p : particles) {
             float alpha = p.life / p.maxLife;
             if (alpha <= 0) continue;
@@ -152,7 +144,6 @@ public class TrailRenderer {
             float g = p.color[1];
             float b = p.color[2];
             
-            // Радужный меняет цвет
             if (p.type == TrailType.RAINBOW) {
                 float hue = (System.currentTimeMillis() % 3000) / 3000f + p.randomOffset;
                 int rgb = java.awt.Color.HSBtoRGB(hue % 1f, 1f, 1f);
@@ -161,29 +152,27 @@ public class TrailRenderer {
                 b = (rgb & 0xFF) / 255f;
             }
             
-            // Позиция относительно камеры
             double dx = p.x - camPos.x;
             double dy = p.y - camPos.y;
             double dz = p.z - camPos.z;
             
             matrices.push();
             matrices.translate(dx, dy, dz);
-            
-            // Billboard: поворачиваем к камере
-            matrices.multiply(camera.getRotation());
+            matrices.multiply(new Quaternionf().rotateY((float)Math.toRadians(-camera.getYaw())));
+            matrices.multiply(new Quaternionf().rotateX((float)Math.toRadians(-camera.getPitch())));
             
             Matrix4f matrix = matrices.peek().getPositionMatrix();
             float size = p.size * alpha;
+            int color = ((int)(alpha * 255) << 24) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
             
-            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-            buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-            
-            buffer.vertex(matrix, -size, -size, 0).color(r, g, b, alpha).next();
-            buffer.vertex(matrix, -size, size, 0).color(r, g, b, alpha).next();
-            buffer.vertex(matrix, size, size, 0).color(r, g, b, alpha).next();
-            buffer.vertex(matrix, size, -size, 0).color(r, g, b, alpha).next();
-            
-            tessellator.draw();
+            context.draw((vertexConsumers) -> {
+                BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+                buffer.vertex(matrix, -size, -size, 0f).color(color);
+                buffer.vertex(matrix, -size, size, 0f).color(color);
+                buffer.vertex(matrix, size, size, 0f).color(color);
+                buffer.vertex(matrix, size, -size, 0f).color(color);
+                BufferRenderer.drawWithGlobalProgram(buffer.end());
+            });
             
             matrices.pop();
         }
@@ -192,4 +181,4 @@ public class TrailRenderer {
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
     }
-                  }
+                    }
