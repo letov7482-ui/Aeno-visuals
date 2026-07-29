@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "neonvisuals",
+  "version": "${version}",
+  "name": "Neon Visuals",
+  "description": "Неоновые визуалы для PvP — Neon Team-Midpoint",
+  "authors": ["Neon Team-Midpoint"],
+  "contact": {"homepage": "https://github.com/твой-репозиторий"},
+  "license": "CC0",
+  "icon": "assets/neonvisuals/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["ru.neon.NeonVisualsClient"]
+  },
+  "mixins": ["neonvisuals.mixins.json"],
+  "depends": {"fabricloader": ">=0.16.0", "minecraft": "\~1.21.4", "fabric-api": "*"}
+}
