@@ -25,7 +25,6 @@ public class CosmeticManager {
     
     private int lastKillCount = 0;
     private double lastX, lastY, lastZ;
-    private boolean wasMoving = false;
     private float moveSpeed = 0;
     private long lastFootprintTime = 0;
     private boolean cosmeticsEnabled = true;
@@ -40,20 +39,17 @@ public class CosmeticManager {
         double dy = player.getY() - lastY;
         double dz = player.getZ() - lastZ;
         moveSpeed = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
-        wasMoving = moveSpeed > 0.01;
+        boolean wasMoving = moveSpeed > 0.01;
         
-        if (activeTrail != TrailType.NONE && wasMoving) {
+        if (activeTrail != TrailType.NONE && wasMoving)
             trailRenderer.addParticle(player, moveSpeed, activeTrail, trailColor);
-        }
         trailRenderer.tick();
         
-        if (activeAura != AuraType.NONE) {
+        if (activeAura != AuraType.NONE)
             auraRenderer.tick(player, activeAura, auraColor);
-        }
         
-        if (activeWings != WingType.NONE) {
+        if (activeWings != WingType.NONE)
             wingRenderer.tick(player, activeWings, moveSpeed);
-        }
         
         if (activeFootprints != FootprintType.NONE && player.isOnGround() && wasMoving) {
             if (now - lastFootprintTime > 300) {
@@ -63,13 +59,12 @@ public class CosmeticManager {
         }
         footprintRenderer.tick();
         
-        // Kill tracking через stats
-        int currentKills = player.getStatHandler().getStat(Stats.CUSTOM, Stats.MOB_KILLS);
+        // Kill tracking (1.21.4 way)
+        int currentKills = player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.MOB_KILLS));
         if (currentKills > lastKillCount) {
             lastKillCount = currentKills;
-            if (activeKillEffect != KillEffectType.NONE) {
+            if (activeKillEffect != KillEffectType.NONE)
                 killEffectRenderer.trigger(player, activeKillEffect);
-            }
         }
         killEffectRenderer.tick();
         
@@ -87,21 +82,16 @@ public class CosmeticManager {
         killEffectRenderer.render(context);
     }
 
-    public void setTrail(TrailType type) { this.activeTrail = type; }
-    public void setAura(AuraType type) { this.activeAura = type; }
-    public void setWings(WingType type) { this.activeWings = type; }
-    public void setFootprints(FootprintType type) { this.activeFootprints = type; }
-    public void setKillEffect(KillEffectType type) { this.activeKillEffect = type; }
-    
+    public void setTrail(TrailType t) { activeTrail = t; }
+    public void setAura(AuraType t) { activeAura = t; }
+    public void setWings(WingType t) { activeWings = t; }
+    public void setFootprints(FootprintType t) { activeFootprints = t; }
+    public void setKillEffect(KillEffectType t) { activeKillEffect = t; }
     public TrailType getTrail() { return activeTrail; }
     public AuraType getAura() { return activeAura; }
     public WingType getWings() { return activeWings; }
     public FootprintType getFootprints() { return activeFootprints; }
     public KillEffectType getKillEffect() { return activeKillEffect; }
-    
-    public void setAuraColor(float r, float g, float b) { auraColor[0] = r; auraColor[1] = g; auraColor[2] = b; }
+    public void setAuraColor(float r, float g, float b) { auraColor = new float[]{r,g,b}; }
     public float[] getAuraColor() { return auraColor; }
-    public void setTrailColor(float r, float g, float b) { trailColor[0] = r; trailColor[1] = g; trailColor[2] = b; }
-    public void toggleCosmetics() { cosmeticsEnabled = !cosmeticsEnabled; }
-    public boolean isEnabled() { return cosmeticsEnabled; }
-                                 }
+}
