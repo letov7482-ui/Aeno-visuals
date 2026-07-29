@@ -1,8 +1,10 @@
 package com.aeonvision.mixin;
 
+import com.aeonvision.ui.ClickGuiScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,46 +16,97 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class TitleScreenMixin {
 
     private float time = 0;
+    private float[][] stars = null;
+
+    @Inject(method = "init", at = @At("RETURN"))
+    private void onInit(CallbackInfo ci) {
+        TitleScreen self = (TitleScreen)(Object)this;
+        MinecraftClient client = MinecraftClient.getInstance();
+        
+        if (stars == null) {
+            stars = new float[60][3];
+            for (int i = 0; i < stars.length; i++) {
+                stars[i][0] = (float)Math.random();
+                stars[i][1] = (float)Math.random();
+                stars[i][2] = 0.5f + (float)Math.random() * 2f;
+            }
+        }
+        
+        int cx = client.getWindow().getScaledWidth() / 2;
+        self.addDrawableChild(ButtonWidget.builder(
+            Text.literal("✦ ÆON VISION"),
+            btn -> client.setScreen(new ClickGuiScreen())
+        ).dimensions(cx - 60, client.getWindow().getScaledHeight() / 2 + 50, 120, 24).build());
+    }
 
     @Inject(method = "render", at = @At("RETURN"))
     private void renderAeonTitle(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         time += delta;
         MinecraftClient client = MinecraftClient.getInstance();
+        int cx = client.getWindow().getScaledWidth() / 2;
+        int h = client.getWindow().getScaledHeight();
+        int w = client.getWindow().getScaledWidth();
         
-        int centerX = client.getWindow().getScaledWidth() / 2;
-        int y = client.getWindow().getScaledHeight() / 2 - 55;
-
+        // Звёзды на фоне меню
+        if (stars != null) {
+            for (float[] s : stars) {
+                float sx = s[0] * w;
+                float sy = s[1] * h;
+                float alpha = 0.3f + MathHelper.sin(time + s[0] * 10) * 0.2f;
+                int sc = ((int)(alpha * 255) << 24) | 0x8899CC;
+                float size = s[2];
+                context.fill((int)sx, (int)sy, (int)(sx + size), (int)(sy + size), sc);
+            }
+        }
+        
+        int y = h / 2 - 70;
+        
+        // Заголовок
         String title = "ÆON VISION";
+        float scale = 2.5f;
+        int tw = (int)(client.textRenderer.getWidth(title) * scale);
         
-        // Тень
-        int shadowWidth = client.textRenderer.getWidth(title);
-        context.drawText(client.textRenderer, Text.literal(title),
-            centerX - shadowWidth / 2 + 2, y + 2, 0x60000000, false);
+        // Свечение за заголовком
+        for (int r = 100; r >= 40; r -= 20) {
+            float ga = (1f - (float)r/100) * 0.05f;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    if (dx*dx + dy*dy <= r*r && dx*dx + dy*dy >= (r-2)*(r-2)) {
+                        context.fill(cx + dx, y + 20 + dy, cx + dx + 1, y + 20 + dy + 1, 
+                            ((int)(ga*255)<<24) | 0x4499FF);
+                    }
+                }
+            }
+        }
         
-        // Побуквенный градиент
+        // Буквы с анимацией
         for (int i = 0; i < title.length(); i++) {
             String letter = String.valueOf(title.charAt(i));
-            int letterX = centerX - shadowWidth / 2 + client.textRenderer.getWidth(title.substring(0, i));
+            float hue = (time * 0.04f + i * 0.05f) % 1.0f;
+            int color = java.awt.Color.HSBtoRGB(hue, 0.5f, 1.0f);
             
-            float hue = (time * 0.05f + i * 0.05f) % 1.0f;
-            int color = java.awt.Color.HSBtoRGB(hue, 0.7f, 1.0f);
+            int lx = cx - tw/2 + (int)(client.textRenderer.getWidth(title.substring(0, i)) * scale);
+            float bounce = MathHelper.sin(time * 2f + i * 0.5f) * 4f;
             
-            float bounce = MathHelper.sin(time * 2.0f + i * 0.3f) * 2f;
-            
-            context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX, y + (int)bounce, color | 0xFF000000, false);
-            
-            // Свечение
-            context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX - 1, y + (int)bounce, 0x20FFFFFF, false);
-            context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX + 1, y + (int)bounce, 0x20FFFFFF, false);
+            context.getMatrices().push();
+            context.getMatrices().translate(lx, y + bounce, 0);
+            context.getMatrices().scale(scale, scale, 1);
+            context.drawText(client.textRenderer, Text.literal(letter), 0, 0, color | 0xFF000000, false);
+            context.getMatrices().pop();
         }
         
         // Подзаголовок
-        String subtitle = "Новая эра визуалов";
-        int subWidth = client.textRenderer.getWidth(subtitle);
-        context.drawText(client.textRenderer, Text.literal(subtitle),
-            centerX - subWidth / 2, y + 22, 0x80FFFFFF, false);
+        String sub = "VISUALS";
+        float subScale = 1.5f;
+        int sw = (int)(client.textRenderer.getWidth(sub) * subScale);
+        context.getMatrices().push();
+        context.getMatrices().translate(cx - sw/2, y + 40, 0);
+        context.getMatrices().scale(subScale, subScale, 1);
+        context.drawText(client.textRenderer, Text.literal(sub), 0, 0, 0x4088AAFF, false);
+        context.getMatrices().pop();
+        
+        // Версия
+        String ver = "v1.0.0";
+        context.drawText(client.textRenderer, Text.literal(ver), w - 50, h - 15, 0x40FFFFFF, false);
     }
-}
+            }
