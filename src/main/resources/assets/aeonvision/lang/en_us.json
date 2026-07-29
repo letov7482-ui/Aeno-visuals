@@ -6,6 +6,7 @@
   "key.aeonvision.night_vision": "Night Vision",
   "key.aeonvision.compass": "Toggle Compass",
   "key.aeonvision.coords": "Toggle Coordinates",
-  "key.aeonvision.timer": "Timer",
-  "key.aeonvision.notes": "Notes"
+  "key.aeonvision.timer": "Timer Start/Stop",
+  "key.aeonvision.notes": "Toggle Notes",
+  "key.aeonvision.auto_torch": "Toggle Auto Torch"
 }
