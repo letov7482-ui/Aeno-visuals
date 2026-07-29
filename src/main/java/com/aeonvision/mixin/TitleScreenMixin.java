@@ -1,6 +1,5 @@
 package com.aeonvision.mixin;
 
-import com.aeonvision.AeonVisionMod;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
@@ -21,49 +20,40 @@ public class TitleScreenMixin {
         time += delta;
         MinecraftClient client = MinecraftClient.getInstance();
         
-        // Позиция: над кнопкой "Одиночная игра" (которая по центру)
         int centerX = client.getWindow().getScaledWidth() / 2;
-        int y = client.getWindow().getScaledHeight() / 2 - 50;
+        int y = client.getWindow().getScaledHeight() / 2 - 55;
 
         String title = "ÆON VISION";
         
-        // Анимированный градиент: бирюзовый → фиолетовый → розовый
-        float hue = (time * 0.05f) % 1.0f;
+        // Тень
+        int shadowWidth = client.textRenderer.getWidth(title);
+        context.drawText(client.textRenderer, Text.literal(title),
+            centerX - shadowWidth / 2 + 2, y + 2, 0x60000000, false);
         
-        // Рисуем буквы по одной с градиентом
-        int totalWidth = client.textRenderer.getWidth(title);
-        int startX = centerX - totalWidth / 2;
-        
+        // Побуквенный градиент
         for (int i = 0; i < title.length(); i++) {
             String letter = String.valueOf(title.charAt(i));
-            int letterX = startX + client.textRenderer.getWidth(title.substring(0, i));
+            int letterX = centerX - shadowWidth / 2 + client.textRenderer.getWidth(title.substring(0, i));
             
-            // Градиент для каждой буквы
-            float letterHue = (hue + i * 0.05f) % 1.0f;
-            int color = java.awt.Color.HSBtoRGB(letterHue, 0.7f, 1.0f);
+            float hue = (time * 0.05f + i * 0.05f) % 1.0f;
+            int color = java.awt.Color.HSBtoRGB(hue, 0.7f, 1.0f);
             
-            // Пульсация размера
-            float scale = 1.0f + MathHelper.sin(time * 2.0f + i * 0.3f) * 0.03f;
+            float bounce = MathHelper.sin(time * 2.0f + i * 0.3f) * 2f;
             
-            // Тень
             context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX + 1, y + 1, 0x4000FFFF, false);
+                letterX, y + (int)bounce, color | 0xFF000000, false);
             
-            // Основной цвет
+            // Свечение
             context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX, y, color | 0xFF000000, false);
-            
-            // Свечение (белая обводка с низкой прозрачностью)
+                letterX - 1, y + (int)bounce, 0x20FFFFFF, false);
             context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX - 1, y, 0x20FFFFFF, false);
-            context.drawText(client.textRenderer, Text.literal(letter), 
-                letterX + 1, y, 0x20FFFFFF, false);
+                letterX + 1, y + (int)bounce, 0x20FFFFFF, false);
         }
         
-        // Слоган снизу
+        // Подзаголовок
         String subtitle = "Новая эра визуалов";
         int subWidth = client.textRenderer.getWidth(subtitle);
         context.drawText(client.textRenderer, Text.literal(subtitle),
-            centerX - subWidth / 2, y + 20, 0x80FFFFFF, false);
+            centerX - subWidth / 2, y + 22, 0x80FFFFFF, false);
     }
 }
