@@ -5,66 +5,83 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.MathHelper;
 
 public class WatermarkOverlay {
 
     private static final MinecraftClient MC = MinecraftClient.getInstance();
-    
-    private static long lastShimmer = 0;
-    private static float shimmerAlpha = 0f;
-    private static boolean shimmerUp = true;
+    private static float smoothFps = 0;
+    private static long time = 0;
 
     public static void render(DrawContext context, RenderTickCounter tickCounter) {
         if (!AeonVisionMod.watermarkEnabled || MC.player == null) return;
         
+        time = System.currentTimeMillis();
         int fps = MC.getCurrentFps();
-        int width = MC.getWindow().getScaledWidth();
         
-        int x = width - 85;
-        int y = 8;
+        // Плавный FPS
+        smoothFps += (fps - smoothFps) * 0.1f;
+        int displayFps = (int) smoothFps;
         
-        // Индикатор цвета по FPS
-        int indicatorColor;
-        if (fps >= 120) {
-            indicatorColor = 0xFF55FFFF;
-        } else if (fps >= 60) {
-            indicatorColor = 0xFF55FF55;
-        } else if (fps >= 30) {
-            indicatorColor = 0xFFFFFF55;
-        } else {
-            indicatorColor = 0xFFFF5555;
+        int screenWidth = MC.getWindow().getScaledWidth();
+        int centerX = screenWidth / 2;
+        int y = 6; // Сверху по центру
+        
+        // Цвет индикатора
+        int dotColor;
+        if (displayFps >= 120) dotColor = 0xFF55FFFF;
+        else if (displayFps >= 60) dotColor = 0xFF55FF55;
+        else if (displayFps >= 30) dotColor = 0xFFFFFF55;
+        else dotColor = 0xFFFF5555;
+        
+        // ===== СОВРЕМЕННАЯ КАПСУЛА =====
+        String text = "ÆON";
+        String fpsText = String.valueOf(displayFps);
+        
+        int textWidth = MC.textRenderer.getWidth(text);
+        int fpsWidth = MC.textRenderer.getWidth(fpsText);
+        int totalWidth = textWidth + fpsWidth + 20;
+        int capsuleX = centerX - totalWidth / 2;
+        
+        // Тень капсулы
+        context.fill(capsuleX - 1, y - 1, capsuleX + totalWidth + 1, y + 15, 0x40000000);
+        
+        // Градиентный фон капсулы
+        for (int i = 0; i < totalWidth; i++) {
+            float t = (float)i / totalWidth;
+            int alpha = 120 + (int)(MathHelper.sin((time * 0.001f + t * 3)) * 30);
+            int bgColor = (Math.min(255, alpha) << 24) | 0x0A0A0A;
+            context.fill(capsuleX + i, y, capsuleX + i + 1, y + 14, bgColor);
         }
         
-        // Фон капсулы
-        context.fill(x - 2, y - 2, x + 82, y + 14, 0x80000000);
-        context.fill(x - 1, y - 1, x + 81, y + 13, 0x40FFFFFF);
+        // Бордер с градиентом
+        context.fill(capsuleX, y, capsuleX + totalWidth, y + 1, 0x40FFFFFF);
+        context.fill(capsuleX, y + 13, capsuleX + totalWidth, y + 14, 0x20FFFFFF);
         
-        // Индикатор
-        context.fill(x + 2, y + 3, x + 7, y + 8, indicatorColor);
+        // Текст "ÆON"
+        context.drawText(MC.textRenderer, Text.literal(text), capsuleX + 6, y + 3, 0xFFFFFFFF, true);
         
-        // Текст
-        String text = "ÆON | " + fps;
-        context.drawText(MC.textRenderer, Text.literal(text), x + 10, y + 2, 0xFFFFFFFF, true);
+        // Разделительная точка
+        int dotX = capsuleX + textWidth + 8;
+        context.fill(dotX, y + 5, dotX + 3, y + 8, dotColor);
         
-        // Шиммер
-        long now = System.currentTimeMillis();
-        if (now - lastShimmer > 4000) {
-            shimmerAlpha = 0f;
-            shimmerUp = true;
-            lastShimmer = now;
-        }
+        // Пульсирующее свечение точки
+        float pulse = MathHelper.sin(time * 0.005f) * 0.3f + 0.7f;
+        int glowAlpha = (int)(pulse * 80);
+        context.fill(dotX - 1, y + 4, dotX + 4, y + 9, (glowAlpha << 24) | dotColor);
         
-        if (shimmerUp) {
-            shimmerAlpha += 0.01f;
-            if (shimmerAlpha >= 0.3f) shimmerUp = false;
-        } else {
-            shimmerAlpha -= 0.01f;
-            if (shimmerAlpha <= 0f) shimmerUp = true;
-        }
+        // FPS счётчик
+        context.drawText(MC.textRenderer, Text.literal(fpsText), 
+            dotX + 7, y + 3, 0xCCCCCCCC, true);
         
-        if (shimmerAlpha > 0) {
-            context.fill(x + 10, y + 1, x + 75, y + 12, 
-                (int)(shimmerAlpha * 255) << 24 | 0xFFFFFF);
+        // Шиммер-эффект по всей капсуле
+        float shimmerPos = (time * 0.0005f) % 1.5f;
+        int shimmerX = capsuleX + (int)(shimmerPos * totalWidth);
+        for (int i = 0; i < 8; i++) {
+            int sx = shimmerX + i;
+            if (sx >= capsuleX && sx < capsuleX + totalWidth) {
+                context.fill(sx, y + 2, sx + 1, y + 12, 0x15FFFFFF);
+            }
         }
     }
-}
+    }
