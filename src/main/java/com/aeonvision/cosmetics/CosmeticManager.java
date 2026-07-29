@@ -31,104 +31,54 @@ public class CosmeticManager {
 
     public void tick(MinecraftClient client) {
         if (!cosmeticsEnabled || client.player == null) return;
-        
         PlayerEntity player = client.player;
         long now = System.currentTimeMillis();
         
-        double dx = player.getX() - lastX;
-        double dy = player.getY() - lastY;
-        double dz = player.getZ() - lastZ;
+        double dx = player.getX() - lastX, dy = player.getY() - lastY, dz = player.getZ() - lastZ;
         moveSpeed = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
         boolean wasMoving = moveSpeed > 0.01;
         
         if (activeTrail != TrailType.NONE && wasMoving)
             trailRenderer.addParticle(player, moveSpeed, activeTrail, trailColor);
         trailRenderer.tick();
-        
-        if (activeAura != AuraType.NONE)
-            auraRenderer.tick(player, activeAura, auraColor);
-        
-        if (activeWings != WingType.NONE)
-            wingRenderer.tick(player, activeWings, moveSpeed);
-        
-        if (activeFootprints != FootprintType.NONE && player.isOnGround() && wasMoving) {
-            if (now - lastFootprintTime > 300) {
-                footprintRenderer.addFootprint(player, activeFootprints);
-                lastFootprintTime = now;
-            }
+        if (activeAura != AuraType.NONE) auraRenderer.tick(player, activeAura, auraColor);
+        if (activeWings != WingType.NONE) wingRenderer.tick(player, activeWings, moveSpeed);
+        if (activeFootprints != FootprintType.NONE && player.isOnGround() && wasMoving && now - lastFootprintTime > 300) {
+            footprintRenderer.addFootprint(player, activeFootprints);
+            lastFootprintTime = now;
         }
         footprintRenderer.tick();
         
         int currentKills = MC.player.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.MOB_KILLS));
         if (currentKills > lastKillCount) {
             lastKillCount = currentKills;
-            if (activeKillEffect != KillEffectType.NONE)
-                killEffectRenderer.trigger(player, activeKillEffect);
+            if (activeKillEffect != KillEffectType.NONE) killEffectRenderer.trigger(player, activeKillEffect);
         }
         killEffectRenderer.tick();
         
-        lastX = player.getX();
-        lastY = player.getY();
-        lastZ = player.getZ();
+        lastX = player.getX(); lastY = player.getY(); lastZ = player.getZ();
     }
 
     public void renderWorld(WorldRenderContext context) {
         if (!cosmeticsEnabled) return;
-        trailRenderer.render(context);
-        auraRenderer.render(context);
-        wingRenderer.render(context);
-        footprintRenderer.render(context);
-        killEffectRenderer.render(context);
+        trailRenderer.render(context); auraRenderer.render(context); wingRenderer.render(context);
+        footprintRenderer.render(context); killEffectRenderer.render(context);
     }
 
-    // ===== СЕТТЕРЫ =====
     public void setTrail(TrailType t) { activeTrail = t; }
     public void setAura(AuraType t) { activeAura = t; }
     public void setWings(WingType t) { activeWings = t; }
     public void setFootprints(FootprintType t) { activeFootprints = t; }
     public void setKillEffect(KillEffectType t) { activeKillEffect = t; }
-    public void setAuraColor(float r, float g, float b) { auraColor = new float[]{r,g,b}; }
-    public void setTrailColor(float r, float g, float b) { trailColor = new float[]{r,g,b}; }
-    
-    // ===== ГЕТТЕРЫ =====
     public TrailType getTrail() { return activeTrail; }
     public AuraType getAura() { return activeAura; }
     public WingType getWings() { return activeWings; }
     public FootprintType getFootprints() { return activeFootprints; }
     public KillEffectType getKillEffect() { return activeKillEffect; }
-    public float[] getAuraColor() { return auraColor; }
-    
-    // ===== ПЕРЕКЛЮЧЕНИЕ ПО КРУГУ =====
-    public void nextTrail() {
-        TrailType[] values = TrailType.values();
-        int next = (activeTrail.ordinal() + 1) % values.length;
-        activeTrail = values[next];
-    }
-    
-    public void nextAura() {
-        AuraType[] values = AuraType.values();
-        int next = (activeAura.ordinal() + 1) % values.length;
-        activeAura = values[next];
-    }
-    
-    public void nextWings() {
-        WingType[] values = WingType.values();
-        int next = (activeWings.ordinal() + 1) % values.length;
-        activeWings = values[next];
-    }
-    
-    public void nextFootprints() {
-        FootprintType[] values = FootprintType.values();
-        int next = (activeFootprints.ordinal() + 1) % values.length;
-        activeFootprints = values[next];
-    }
-    
-    public void nextKillEffect() {
-        KillEffectType[] values = KillEffectType.values();
-        int next = (activeKillEffect.ordinal() + 1) % values.length;
-        activeKillEffect = values[next];
-    }
-    
-    public void toggleCosmetics() { cosmeticsEnabled = !cosmeticsEnabled; }
-    public boolean isEnabled() { return cosmeticsEnabled; }
-    }
+
+    public void nextTrail() { TrailType[] v = TrailType.values(); activeTrail = v[(activeTrail.ordinal()+1)%v.length]; }
+    public void nextAura() { AuraType[] v = AuraType.values(); activeAura = v[(activeAura.ordinal()+1)%v.length]; }
+    public void nextWings() { WingType[] v = WingType.values(); activeWings = v[(activeWings.ordinal()+1)%v.length]; }
+    public void nextFootprints() { FootprintType[] v = FootprintType.values(); activeFootprints = v[(activeFootprints.ordinal()+1)%v.length]; }
+    public void nextKillEffect() { KillEffectType[] v = KillEffectType.values(); activeKillEffect = v[(activeKillEffect.ordinal()+1)%v.length]; }
+        }
