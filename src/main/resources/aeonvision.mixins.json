@@ -5,7 +5,6 @@
   "client": [
     "TitleScreenMixin",
     "InGameHudMixin",
-    "SplashScreenMixin",
     "MinecraftClientMixin",
     "KeyboardMixin"
   ],
