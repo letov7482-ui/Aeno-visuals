@@ -12,7 +12,6 @@ public class KeyBindManager {
 
     public static KeyBinding GUI_KEY;
     private static boolean guiOpen = false;
-    private static boolean keyWasPressed = false;
 
     public static void register() {
         GUI_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -21,20 +20,12 @@ public class KeyBindManager {
             GLFW.GLFW_KEY_RIGHT_SHIFT,
             "category.aeonvision.main"
         ));
-        AeonVisionMod.LOGGER.info("Æon Vision: Right Shift GUI registered");
     }
 
     public static boolean handleKey(int key, int scancode, int action, int modifiers) {
-        if (key == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-            if (action == GLFW.GLFW_PRESS && !keyWasPressed) {
-                keyWasPressed = true;
-                if (!guiOpen) {
-                    openGui();
-                    return true;
-                }
-            } else if (action == GLFW.GLFW_RELEASE) {
-                keyWasPressed = false;
-            }
+        if (key == GLFW.GLFW_KEY_RIGHT_SHIFT && action == GLFW.GLFW_PRESS && !guiOpen) {
+            openGui();
+            return true;
         }
         return false;
     }
@@ -44,9 +35,6 @@ public class KeyBindManager {
         MinecraftClient.getInstance().setScreen(new MainGuiScreen());
     }
 
-    public static void closeGui() {
-        guiOpen = false;
-    }
-
+    public static void closeGui() { guiOpen = false; }
     public static boolean isGuiOpen() { return guiOpen; }
 }
