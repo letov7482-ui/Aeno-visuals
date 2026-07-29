@@ -12,37 +12,34 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(TitleScreen.class)
 public class TitleScreenMixin {
 
+    @Inject(method = "render", at = @At("HEAD"))
+    private void renderBlackBackground(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        // Заливаем всё чёрным (убираем панораму и Minecraft Java Edition)
+        MinecraftClient client = MinecraftClient.getInstance();
+        context.fill(0, 0, client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight(), 0xFF000000);
+    }
+
     @Inject(method = "render", at = @At("RETURN"))
     private void renderAeonTitle(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         int cx = client.getWindow().getScaledWidth() / 2;
-        int h = client.getWindow().getScaledHeight();
-        int y = h / 2 - 70;
+        int y = client.getWindow().getScaledHeight() / 2 - 60;
         
-        // Заголовок ÆON VISION (фиолетовый, не прыгает)
+        // ÆON VISION (фиолетовый)
         String title = "ÆON VISION";
-        float scale = 3.5f;
+        float scale = 4.0f;
         int tw = (int)(client.textRenderer.getWidth(title) * scale);
         
         context.getMatrices().push();
         context.getMatrices().translate(cx - tw/2, y, 0);
         context.getMatrices().scale(scale, scale, 1);
-        context.drawText(client.textRenderer, Text.literal(title), 0, 0, 0xFFAA66FF, false);
-        context.getMatrices().pop();
-        
-        // Подзаголовок VISUALS
-        String sub = "VISUALS";
-        float subScale = 2.0f;
-        int sw = (int)(client.textRenderer.getWidth(sub) * subScale);
-        context.getMatrices().push();
-        context.getMatrices().translate(cx - sw/2, y + 50, 0);
-        context.getMatrices().scale(subScale, subScale, 1);
-        context.drawText(client.textRenderer, Text.literal(sub), 0, 0, 0x504488AA, false);
+        context.drawText(client.textRenderer, Text.literal(title), 0, 0, 0xFFAA55FF, false);
         context.getMatrices().pop();
         
         // Подсказка
         String hint = "Правый Shift — меню ÆON";
         context.drawText(client.textRenderer, Text.literal(hint),
-            cx - client.textRenderer.getWidth(hint)/2, h - 20, 0x30FFFFFF, false);
+            cx - client.textRenderer.getWidth(hint)/2, 
+            client.getWindow().getScaledHeight() - 20, 0x30FFFFFF, false);
     }
-    }
+}
