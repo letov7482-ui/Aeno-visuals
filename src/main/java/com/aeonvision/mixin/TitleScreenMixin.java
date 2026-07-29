@@ -1,10 +1,8 @@
 package com.aeonvision.mixin;
 
-import com.aeonvision.ui.ClickGuiScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,11 +16,15 @@ public class TitleScreenMixin {
     private float time = 0;
     private float[][] stars = null;
 
-    @Inject(method = "init", at = @At("RETURN"))
-    private void onInit(CallbackInfo ci) {
-        TitleScreen self = (TitleScreen)(Object)this;
+    @Inject(method = "render", at = @At("RETURN"))
+    private void renderAeonTitle(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        time += delta;
         MinecraftClient client = MinecraftClient.getInstance();
+        int cx = client.getWindow().getScaledWidth() / 2;
+        int h = client.getWindow().getScaledHeight();
+        int w = client.getWindow().getScaledWidth();
         
+        // Инициализация звёзд
         if (stars == null) {
             stars = new float[60][3];
             for (int i = 0; i < stars.length; i++) {
@@ -32,31 +34,13 @@ public class TitleScreenMixin {
             }
         }
         
-        int cx = client.getWindow().getScaledWidth() / 2;
-        self.addDrawableChild(ButtonWidget.builder(
-            Text.literal("✦ ÆON VISION"),
-            btn -> client.setScreen(new ClickGuiScreen())
-        ).dimensions(cx - 60, client.getWindow().getScaledHeight() / 2 + 50, 120, 24).build());
-    }
-
-    @Inject(method = "render", at = @At("RETURN"))
-    private void renderAeonTitle(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        time += delta;
-        MinecraftClient client = MinecraftClient.getInstance();
-        int cx = client.getWindow().getScaledWidth() / 2;
-        int h = client.getWindow().getScaledHeight();
-        int w = client.getWindow().getScaledWidth();
-        
-        // Звёзды на фоне меню
-        if (stars != null) {
-            for (float[] s : stars) {
-                float sx = s[0] * w;
-                float sy = s[1] * h;
-                float alpha = 0.3f + MathHelper.sin(time + s[0] * 10) * 0.2f;
-                int sc = ((int)(alpha * 255) << 24) | 0x8899CC;
-                float size = s[2];
-                context.fill((int)sx, (int)sy, (int)(sx + size), (int)(sy + size), sc);
-            }
+        // Звёзды
+        for (float[] s : stars) {
+            float sx = s[0] * w;
+            float sy = s[1] * h;
+            float alpha = 0.3f + MathHelper.sin(time + s[0] * 10) * 0.2f;
+            int sc = ((int)(alpha * 255) << 24) | 0x8899CC;
+            context.fill((int)sx, (int)sy, (int)(sx + s[2]), (int)(sy + s[2]), sc);
         }
         
         int y = h / 2 - 70;
@@ -66,20 +50,7 @@ public class TitleScreenMixin {
         float scale = 2.5f;
         int tw = (int)(client.textRenderer.getWidth(title) * scale);
         
-        // Свечение за заголовком
-        for (int r = 100; r >= 40; r -= 20) {
-            float ga = (1f - (float)r/100) * 0.05f;
-            for (int dx = -r; dx <= r; dx++) {
-                for (int dy = -r; dy <= r; dy++) {
-                    if (dx*dx + dy*dy <= r*r && dx*dx + dy*dy >= (r-2)*(r-2)) {
-                        context.fill(cx + dx, y + 20 + dy, cx + dx + 1, y + 20 + dy + 1, 
-                            ((int)(ga*255)<<24) | 0x4499FF);
-                    }
-                }
-            }
-        }
-        
-        // Буквы с анимацией
+        // Буквы с градиентом
         for (int i = 0; i < title.length(); i++) {
             String letter = String.valueOf(title.charAt(i));
             float hue = (time * 0.04f + i * 0.05f) % 1.0f;
@@ -105,8 +76,9 @@ public class TitleScreenMixin {
         context.drawText(client.textRenderer, Text.literal(sub), 0, 0, 0x4088AAFF, false);
         context.getMatrices().pop();
         
-        // Версия
-        String ver = "v1.0.0";
-        context.drawText(client.textRenderer, Text.literal(ver), w - 50, h - 15, 0x40FFFFFF, false);
+        // Подсказка
+        String hint = "Зажми Left Shift для меню";
+        context.drawText(client.textRenderer, Text.literal(hint),
+            cx - client.textRenderer.getWidth(hint)/2, h - 25, 0x40FFFFFF, false);
     }
-            }
+                                        }
