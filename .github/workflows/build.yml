@@ -18,15 +18,19 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      - name: Setup Gradle 8.10
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.10
-          cache-disabled: true
       
-      - name: Build with Gradle
-        run: gradle build --no-daemon --stacktrace
+      - name: Download Gradle 8.10
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip
+          unzip -q gradle-8.10-bin.zip
+          rm gradle-8.10-bin.zip
+      
+      - name: Build with Gradle 8.10
+        run: |
+          export GRADLE_HOME=$PWD/gradle-8.10
+          export PATH=$GRADLE_HOME/bin:$PATH
+          gradle --version
+          gradle build --no-daemon
       
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
