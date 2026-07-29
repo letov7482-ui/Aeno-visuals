@@ -105,11 +105,11 @@ public class KeyBindManager {
             }
         }
         
-        // Обработка нажатий (одиночный клик, не зажатие)
+        // Обработка нажатий
         if (action == GLFW.GLFW_PRESS) {
             if (key == ZOOM_KEY.getDefaultKey().getCode()) {
                 AeonVisionClient.ZOOM.toggle();
-                return false; // Не блокируем, чтобы не мешать игре
+                return false;
             }
             if (key == NIGHT_VISION_KEY.getDefaultKey().getCode()) {
                 AeonVisionClient.NIGHT_VISION.toggle();
@@ -124,7 +124,7 @@ public class KeyBindManager {
                 return false;
             }
             if (key == TIMER_KEY.getDefaultKey().getCode()) {
-                AeonVisionClient.TIMER.toggle();
+                AeonVisionClient.TIMER.startStop();
                 return false;
             }
             if (key == NOTES_KEY.getDefaultKey().getCode()) {
@@ -144,19 +144,22 @@ public class KeyBindManager {
         MinecraftClient client = MinecraftClient.getInstance();
         hudPanelOpen = true;
         client.setScreen(new RadialHudScreen());
-        AeonVisionMod.LOGGER.debug("HUD Panel opened");
     }
 
-    private static void closeHudPanel() {
+    public static void closeHudPanel() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.currentScreen instanceof RadialHudScreen) {
             client.setScreen(null);
         }
         hudPanelOpen = false;
-        AeonVisionMod.LOGGER.debug("HUD Panel closed");
+    }
+    
+    // Статический метод для вызова из RadialHudScreen.close()
+    public static void closeHudPanel2() {
+        hudPanelOpen = false;
     }
 
     public static boolean isHudPanelOpen() {
         return hudPanelOpen;
     }
-}
+        }
