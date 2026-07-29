@@ -5,8 +5,7 @@
   "client": [
     "TitleScreenMixin",
     "InGameHudMixin",
-    "MinecraftClientMixin",
-    "KeyboardMixin"
+    "MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1
