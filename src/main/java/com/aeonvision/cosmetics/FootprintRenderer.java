@@ -9,124 +9,57 @@ import net.minecraft.util.math.Vec3d;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import java.util.*;
 
 public class FootprintRenderer {
     private final MinecraftClient MC = MinecraftClient.getInstance();
     
     private static class Footprint {
-        double x, y, z;
-        float yaw;
-        float life;
-        float maxLife;
-        FootprintType type;
-        
-        Footprint(double x, double y, double z, float yaw, FootprintType type) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.yaw = yaw;
-            this.type = type;
-            this.maxLife = type == FootprintType.FIRE ? 2f : 
-                           type == FootprintType.ICE ? 6f : 4f;
-            this.life = maxLife;
+        double x,y,z; float yaw,life,maxLife; FootprintType type;
+        Footprint(double x,double y,double z,float yaw,FootprintType t){
+            this.x=x;this.y=y;this.z=z;this.yaw=yaw;this.type=t;
+            this.maxLife=t==FootprintType.FIRE?2f:t==FootprintType.ICE?6f:4f;
+            this.life=maxLife;
         }
     }
     
     private final List<Footprint> footprints = new ArrayList<>();
-    private static final int MAX_FOOTPRINTS = 30;
-    private BlockPos lastFootprintBlock = BlockPos.ORIGIN;
-    
-    public void addFootprint(PlayerEntity player, FootprintType type) {
-        BlockPos currentBlock = player.getBlockPos();
-        if (currentBlock.equals(lastFootprintBlock)) return;
-        lastFootprintBlock = currentBlock;
-        
-        if (footprints.size() >= MAX_FOOTPRINTS) {
-            footprints.remove(0);
+    private BlockPos lastPos = BlockPos.ORIGIN;
+
+    public void addFootprint(PlayerEntity p, FootprintType t){
+        BlockPos cp=p.getBlockPos(); if(cp.equals(lastPos))return; lastPos=cp;
+        if(footprints.size()>=30)footprints.remove(0);
+        footprints.add(new Footprint(p.getX(),Math.floor(p.getY())+0.01,p.getZ(),p.getYaw(),t));
+    }
+
+    public void tick(){
+        Iterator<Footprint> it=footprints.iterator();
+        while(it.hasNext()){Footprint f=it.next(); f.life-=0.016f; if(f.life<=0)it.remove();}
+    }
+
+    public void render(WorldRenderContext ctx){
+        if(footprints.isEmpty())return;
+        MatrixStack ms=ctx.matrixStack(); Camera cam=ctx.camera(); Vec3d cp=cam.getPos();
+        RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc(); RenderSystem.depthMask(false);
+        for(Footprint f:footprints){
+            float a=f.life/f.maxLife; if(a<=0)continue;
+            ms.push(); ms.translate(f.x-cp.x,f.y-cp.y,f.z-cp.z);
+            ms.multiply(new Quaternionf().rotateY((float)Math.toRadians(-f.yaw+90)));
+            Matrix4f m=ms.peek().getPositionMatrix();
+            float[] c=getColor(f.type); float s=0.2f;
+            int c1=rgba(c[0],c[1],c[2],a), c2=rgba(c[0],c[1],c[2],a*0.5f);
+            BufferBuilder buf=Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS,VertexFormats.POSITION_COLOR);
+            buf.vertex(m,-s,0,-s*1.5f).color(c1); buf.vertex(m,-s*0.5f,0,-s*1.5f).color(c1);
+            buf.vertex(m,-s*0.5f,0,s*0.5f).color(c2); buf.vertex(m,-s,0,s*0.5f).color(c2);
+            buf.vertex(m,s*0.5f,0,-s*1.5f).color(c1); buf.vertex(m,s,0,-s*1.5f).color(c1);
+            buf.vertex(m,s,0,s*0.5f).color(c2); buf.vertex(m,s*0.5f,0,s*0.5f).color(c2);
+            BufferRenderer.drawWithGlobalProgram(buf.end());
+            ms.pop();
         }
-        
-        // Позиция на земле
-        double x = player.getX();
-        double y = Math.floor(player.getY()) + 0.01;
-        double z = player.getZ();
-        
-        footprints.add(new Footprint(x, y, z, player.getYaw(), type));
+        RenderSystem.depthMask(true); RenderSystem.disableBlend();
     }
-    
-    public void tick() {
-        Iterator<Footprint> it = footprints.iterator();
-        while (it.hasNext()) {
-            Footprint fp = it.next();
-            fp.life -= 0.016f;
-            if (fp.life <= 0) it.remove();
-        }
-    }
-    
-    public void render(WorldRenderContext context) {
-        if (footprints.isEmpty()) return;
-        
-        MatrixStack matrices = context.matrixStack();
-        Camera camera = context.camera();
-        Vec3d camPos = camera.getPos();
-        
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.depthMask(false);
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-        
-        for (Footprint fp : footprints) {
-            float alpha = fp.life / fp.maxLife;
-            if (alpha <= 0) continue;
-            
-            double dx = fp.x - camPos.x;
-            double dy = fp.y - camPos.y;
-            double dz = fp.z - camPos.z;
-            
-            matrices.push();
-            matrices.translate(dx, dy, dz);
-            matrices.multiply(new org.joml.Quaternionf().rotateY((float)Math.toRadians(-fp.yaw + 90)));
-            
-            Matrix4f mat = matrices.peek().getPositionMatrix();
-            
-            float[] color = getColorForType(fp.type);
-            float size = 0.2f;
-            
-            // Рисуем отпечаток (форма подошвы)
-            buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-            
-            // Левая сторона
-            buffer.vertex(mat, -size, 0, -size * 1.5f).color(color[0], color[1], color[2], alpha).next();
-            buffer.vertex(mat, -size * 0.5f, 0, -size * 1.5f).color(color[0], color[1], color[2], alpha * 0.7f).next();
-            buffer.vertex(mat, -size * 0.5f, 0, size * 0.5f).color(color[0], color[1], color[2], alpha * 0.3f).next();
-            buffer.vertex(mat, -size, 0, size * 0.5f).color(color[0], color[1], color[2], alpha * 0.5f).next();
-            
-            // Правая сторона
-            buffer.vertex(mat, size * 0.5f, 0, -size * 1.5f).color(color[0], color[1], color[2], alpha * 0.7f).next();
-            buffer.vertex(mat, size, 0, -size * 1.5f).color(color[0], color[1], color[2], alpha).next();
-            buffer.vertex(mat, size, 0, size * 0.5f).color(color[0], color[1], color[2], alpha * 0.5f).next();
-            buffer.vertex(mat, size * 0.5f, 0, size * 0.5f).color(color[0], color[1], color[2], alpha * 0.3f).next();
-            
-            tessellator.draw();
-            
-            matrices.pop();
-        }
-        
-        RenderSystem.depthMask(true);
-        RenderSystem.disableBlend();
-    }
-    
-    private float[] getColorForType(FootprintType type) {
-        return switch(type) {
-            case GLOWING -> new float[]{1f, 1f, 0.9f};
-            case FIRE -> new float[]{1f, 0.5f, 0.1f};
-            case ICE -> new float[]{0.5f, 0.8f, 1f};
-            case GHOST -> new float[]{0.7f, 0.7f, 0.9f};
-            case RUNIC -> new float[]{0.6f, 0.2f, 1f};
-            default -> new float[]{1f, 1f, 1f};
-        };
-    }
-                          }
+
+    private float[] getColor(FootprintType t){return switch(t){case GLOWING->new float[]{1,1,0.9f};case FIRE->new float[]{1,0.5f,0.1f};case ICE->new float[]{0.5f,0.8f,1};case GHOST->new float[]{0.7f,0.7f,0.9f};case RUNIC->new float[]{0.6f,0.2f,1};default->new float[]{1,1,1};};}
+    private int rgba(float r,float g,float b,float a){return((int)(a*255)<<24)|((int)(r*255)<<16)|((int)(g*255)<<8)|(int)(b*255);}
+                }
