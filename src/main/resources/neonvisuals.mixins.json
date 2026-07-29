@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "package": "ru.neon.visuals.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ClientPlayerInteractionMixin",
+    "WorldRendererMixin"
+  ],
+  "injectors": {"defaultRequire": 1}
+}
