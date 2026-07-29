@@ -6,6 +6,7 @@
   "key.aeonvision.night_vision": "Ночное зрение",
   "key.aeonvision.compass": "Показать компас",
   "key.aeonvision.coords": "Показать координаты",
-  "key.aeonvision.timer": "Таймер",
-  "key.aeonvision.notes": "Заметки"
+  "key.aeonvision.timer": "Таймер Старт/Стоп",
+  "key.aeonvision.notes": "Заметки",
+  "key.aeonvision.auto_torch": "Авто-факел"
 }
