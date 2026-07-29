@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.SplashOverlay;
 import net.minecraft.text.Text;
+import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,172 +21,215 @@ public class SplashScreenMixin {
     
     private float displayProgress = 0f;
     private float rotationAngle = 0f;
-    private float particleAngle = 0f;
+    private long startTime = Util.getMeasuringTimeMs();
+    private float[][] floatingParticles = new float[40][4]; // x, y, size, speed
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void renderAeonSplash(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        long time = Util.getMeasuringTimeMs() - startTime;
+        
+        // ===== ФИКС БЕСКОНЕЧНОЙ ЗАГРУЗКИ =====
+        // Если оригинальный прогресс дошёл до 100% — не блокируем
+        if (progress >= 1.0f) {
+            return; // Пропускаем миксин, идёт стандартный рендер
+        }
+        ci.cancel(); // Иначе рисуем свой экран
+        
         // Плавный прогресс
-        displayProgress += (progress - displayProgress) * 0.05f;
-        rotationAngle += delta * 45f;
-        particleAngle += delta * 120f;
+        displayProgress += (progress - displayProgress) * 0.04f;
+        rotationAngle += delta * 40f;
         
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
-        int centerX = width / 2;
-        int centerY = height / 2;
-        long time = System.currentTimeMillis();
+        int cx = width / 2;
+        int cy = height / 2;
         
-        // ===== ЧЁРНЫЙ ФОН =====
-        context.fill(0, 0, width, height, 0xFF0A0A0F);
-        
-        // ===== АНИМИРОВАННЫЕ ЧАСТИЦЫ НА ФОНЕ =====
-        for (int i = 0; i < 30; i++) {
-            float angle = (float)(i * Math.PI * 2 / 30) + particleAngle * 0.02f;
-            float dist = 80 + MathHelper.sin(particleAngle * 0.03f + i) * 30;
-            float px = centerX + MathHelper.cos(angle) * dist;
-            float py = centerY - 30 + MathHelper.sin(angle) * dist * 0.6f;
-            float size = 2 + MathHelper.sin(time * 0.001f + i) * 1.5f;
-            float alpha = 0.15f + MathHelper.sin(time * 0.002f + i * 0.7f) * 0.1f;
-            
-            int pColor = ((int)(alpha * 255) << 24) | 0x55CCFF;
-            context.fill((int)(px - size), (int)(py - size), (int)(px + size), (int)(py + size), pColor);
+        // ===== ИНИЦИАЛИЗАЦИЯ ЧАСТИЦ =====
+        if (floatingParticles[0][2] == 0) {
+            for (int i = 0; i < floatingParticles.length; i++) {
+                floatingParticles[i][0] = (float)Math.random() * width;
+                floatingParticles[i][1] = (float)Math.random() * height;
+                floatingParticles[i][2] = 1f + (float)Math.random() * 4f;
+                floatingParticles[i][3] = 0.003f + (float)Math.random() * 0.015f;
+            }
         }
         
-        // ===== БОЛЬШОЙ ЛОГОТИП Æ =====
-        int logoRadius = 35;
-        int logoSegments = 80;
-        float logoAlpha = Math.min(1.0f, displayProgress * 1.5f);
-        float breathe = 1.0f + MathHelper.sin(time * 0.003f) * 0.05f;
+        // ===== ТЁМНЫЙ ФОН С ГРАДИЕНТОМ =====
+        for (int y = 0; y < height; y++) {
+            float t = (float)y / height;
+            int r = (int)(5 + t * 10);
+            int g = (int)(5 + t * 15);
+            int b = (int)(10 + t * 25);
+            int color = 0xFF000000 | (r << 16) | (g << 8) | b;
+            context.fill(0, y, width, y + 1, color);
+        }
+        
+        // ===== ПАРЯЩИЕ ЧАСТИЦЫ =====
+        for (float[] p : floatingParticles) {
+            p[1] -= p[3] * delta * 60;
+            if (p[1] < -10) {
+                p[1] = height + 10;
+                p[0] = (float)Math.random() * width;
+            }
+            float alpha = 0.3f + MathHelper.sin((float)time * 0.001f + p[0]) * 0.2f;
+            int pColor = ((int)(alpha * 255) << 24) | 0x4488CC;
+            context.fill((int)(p[0] - p[2]/2), (int)(p[1] - p[2]/2), 
+                        (int)(p[0] + p[2]/2), (int)(p[1] + p[2]/2), pColor);
+        }
+        
+        // ===== БОЛЬШОЕ СВЕЧЕНИЕ ЗА ЛОГОТИПОМ =====
+        float glowPulse = 1.0f + MathHelper.sin((float)time * 0.002f) * 0.3f;
+        for (int r = 120; r >= 30; r -= 8) {
+            float glowAlpha = (1.0f - (float)r / 120) * 0.08f * glowPulse;
+            int glowColor = ((int)(glowAlpha * 255) << 24) | 0x3399FF;
+            drawCircleFilled(context, cx, cy - 35, r, glowColor);
+        }
+        
+        // ===== ЛОГОТИП Æ =====
+        float logoAlpha = Math.min(1.0f, displayProgress * 2.0f);
+        int logoRadius = 38;
+        int logoSegments = 100;
+        float breathe = 1.0f + MathHelper.sin((float)time * 0.003f) * 0.04f;
         int br = (int)(logoRadius * breathe);
         
-        // Внешнее свечение
-        for (int r = br + 15; r >= br; r -= 3) {
-            float glowAlpha = logoAlpha * (1.0f - (float)(r - br) / 15) * 0.3f;
-            int glowColor = ((int)(glowAlpha * 255) << 24) | 0x44AAFF;
-            drawCircleFill(context, centerX, centerY - 40, r, glowColor);
-        }
-        
-        // Кольцо логотипа
+        // Внешнее кольцо (тонкое)
         for (int i = 0; i < logoSegments; i++) {
             float a1 = (float)(i * Math.PI * 2 / logoSegments) + (float)Math.toRadians(rotationAngle);
             float a2 = (float)((i + 1) * Math.PI * 2 / logoSegments) + (float)Math.toRadians(rotationAngle);
             
-            float brightness = 0.6f + MathHelper.sin(a1 * 3 + time * 0.002f) * 0.4f;
-            int alpha = (int)(logoAlpha * brightness * 255);
-            int color = (alpha << 24) | 0x55CCFF;
+            float bright = 0.5f + MathHelper.sin(a1 * 3 + (float)time * 0.002f) * 0.5f;
+            int alpha = (int)(logoAlpha * bright * 255);
+            int color = (alpha << 24) | 0x66CCFF;
             
-            int x1 = centerX + (int)(Math.cos(a1) * br);
-            int y1 = centerY - 40 + (int)(Math.sin(a1) * br);
-            int x2 = centerX + (int)(Math.cos(a2) * br);
-            int y2 = centerY - 40 + (int)(Math.sin(a2) * br);
-            
-            drawThickLine(context, x1, y1, x2, y2, 2, color);
+            drawLineBold(context, 
+                cx + (int)(Math.cos(a1) * br), cy - 35 + (int)(Math.sin(a1) * br),
+                cx + (int)(Math.cos(a2) * br), cy - 35 + (int)(Math.sin(a2) * br), 
+                2.5f, color);
         }
         
-        // Перекладина Æ (тоже анимированная)
-        float crossWidth = br * 2f * (0.8f + MathHelper.sin(time * 0.004f) * 0.1f);
-        int crossAlpha = (int)(logoAlpha * 255);
-        int crossColor = (crossAlpha << 24) | 0xFFFFFF;
-        
-        for (int dy = -2; dy <= 2; dy++) {
-            context.fill(
-                centerX - (int)(crossWidth / 2), 
-                centerY - 42 + dy, 
-                centerX + (int)(crossWidth / 2), 
-                centerY - 38 + dy, 
-                crossColor
-            );
+        // Внутреннее кольцо
+        int innerR = (int)(br * 0.85f);
+        for (int i = 0; i < logoSegments/2; i++) {
+            float a1 = (float)(i * Math.PI * 4 / logoSegments) - (float)Math.toRadians(rotationAngle * 0.5f);
+            float a2 = (float)((i + 1) * Math.PI * 4 / logoSegments) - (float)Math.toRadians(rotationAngle * 0.5f);
+            
+            int alpha = (int)(logoAlpha * 0.4f * 255);
+            int color = (alpha << 24) | 0x88DDFF;
+            
+            drawLineBold(context,
+                cx + (int)(Math.cos(a1) * innerR), cy - 35 + (int)(Math.sin(a1) * innerR),
+                cx + (int)(Math.cos(a2) * innerR), cy - 35 + (int)(Math.sin(a2) * innerR),
+                1.5f, color);
         }
         
-        // ===== НАЗВАНИЕ "ÆON VISION" КРУПНО =====
+        // Перекладина Æ
+        float crossLen = br * 1.6f + MathHelper.sin((float)time * 0.004f) * 3f;
+        int crossColor = ((int)(logoAlpha * 255) << 24) | 0xFFFFFF;
+        context.fill(cx - (int)(crossLen/2), cy - 39, cx + (int)(crossLen/2), cy - 31, crossColor);
+        // Блик на перекладине
+        context.fill(cx - (int)(crossLen/2), cy - 37, cx + (int)(crossLen/2), cy - 35, 
+            ((int)(logoAlpha * 100) << 24) | 0xFFFFFF);
+        
+        // ===== НАЗВАНИЕ ÆON VISION (ОГРОМНОЕ) =====
         String title = "ÆON VISION";
-        float titleScale = 2.5f;
+        float titleScale = 3.0f;
         int titleWidth = (int)(client.textRenderer.getWidth(title) * titleScale);
-        int titleY = centerY + 20;
+        int titleY = cy + 25;
         
-        // Тень названия
-        drawScaledText(context, title, 
-            centerX - titleWidth/2 + 3, titleY + 3, 
-            titleScale, 0x40000000);
+        // Тень
+        drawTextScaled(context, title, cx - titleWidth/2 + 4, titleY + 4, titleScale, 0x60000000);
         
-        // Основное название с градиентом
+        // Основной текст побуквенно с градиентом
         for (int i = 0; i < title.length(); i++) {
             String letter = String.valueOf(title.charAt(i));
-            float hue = (time * 0.0005f + i * 0.05f) % 1.0f;
-            int rgb = java.awt.Color.HSBtoRGB(hue, 0.6f, 1.0f);
+            float hue = ((float)time * 0.0003f + i * 0.06f) % 1.0f;
+            int rgb = java.awt.Color.HSBtoRGB(hue, 0.5f, 1.0f);
             int letterColor = ((int)(logoAlpha * 255) << 24) | (rgb & 0x00FFFFFF);
             
-            int letterX = centerX - titleWidth/2 + (int)(client.textRenderer.getWidth(title.substring(0, i)) * titleScale);
-            drawScaledText(context, letter, letterX, titleY, titleScale, letterColor);
+            int lx = cx - titleWidth/2 + (int)(client.textRenderer.getWidth(title.substring(0, i)) * titleScale);
+            float bounce = MathHelper.sin((float)time * 0.004f + i * 0.5f) * 2f;
+            drawTextScaled(context, letter, lx, titleY + (int)bounce, titleScale, letterColor);
         }
         
-        // ===== ПРОГРЕСС-БАР (СТИЛЬНЫЙ) =====
-        int barWidth = 250;
-        int barHeight = 4;
-        int barX = centerX - barWidth / 2;
-        int barY = titleY + 40;
+        // Подзаголовок "VISUALS"
+        String sub = "V I S U A L S";
+        float subScale = 1.8f;
+        int subWidth = (int)(client.textRenderer.getWidth(sub) * subScale);
+        int subAlpha = (int)(logoAlpha * 150);
+        int subColor = (subAlpha << 24) | 0xAACCDD;
+        drawTextScaled(context, sub, cx - subWidth/2, titleY + 40, subScale, subColor);
         
-        // Фон бара с закруглением
-        context.fill(barX - 2, barY - 2, barX + barWidth + 2, barY + barHeight + 2, 0x20FFFFFF);
-        context.fill(barX, barY, barX + barWidth, barY + barHeight, 0x15FFFFFF);
+        // ===== ПРОГРЕСС-БАР =====
+        int barWidth = 280;
+        int barHeight = 5;
+        int barX = cx - barWidth/2;
+        int barY = titleY + 80;
         
-        // Заполнение с градиентом
-        int fillWidth = (int)(barWidth * displayProgress);
-        if (fillWidth > 0) {
-            for (int i = 0; i < fillWidth; i++) {
+        // Внешняя рамка
+        context.fill(barX - 3, barY - 3, barX + barWidth + 3, barY + barHeight + 3, 0x30FFFFFF);
+        // Внутренний фон
+        context.fill(barX, barY, barX + barWidth, barY + barHeight, 0x10FFFFFF);
+        
+        // Заполнение
+        int fillW = (int)(barWidth * displayProgress);
+        if (fillW > 0) {
+            // Основной градиент заполнения
+            for (int i = 0; i < fillW; i++) {
                 float t = (float)i / barWidth;
-                int rgb = java.awt.Color.HSBtoRGB(0.55f + t * 0.1f, 0.8f, 0.9f);
+                int rgb = java.awt.Color.HSBtoRGB(0.55f + t * 0.12f, 0.7f, 0.9f);
                 context.fill(barX + i, barY, barX + i + 1, barY + barHeight, rgb | 0xFF000000);
             }
-            // Блик на конце заполнения
-            if (fillWidth < barWidth) {
-                context.fill(barX + fillWidth - 1, barY - 1, barX + fillWidth + 3, barY + barHeight + 1, 0x40FFFFFF);
+            // Светящийся блик на конце
+            int glowW = Math.min(20, fillW);
+            for (int i = 0; i < glowW; i++) {
+                float gAlpha = 1.0f - (float)i / glowW;
+                int gColor = ((int)(gAlpha * 100) << 24) | 0xFFFFFF;
+                context.fill(barX + fillW - glowW + i, barY - 2, 
+                            barX + fillW - glowW + i + 1, barY + barHeight + 2, gColor);
             }
         }
         
-        // Процент загрузки
-        String percentText = (int)(displayProgress * 100) + "%";
-        context.drawText(client.textRenderer, Text.literal(percentText),
-            centerX - client.textRenderer.getWidth(percentText)/2, 
-            barY + 10, 0x80FFFFFF, false);
+        // Процент текстом
+        String pct = (int)(displayProgress * 100) + "%";
+        context.drawText(client.textRenderer, Text.literal(pct),
+            cx - client.textRenderer.getWidth(pct)/2, barY + 10, 0x99FFFFFF, false);
         
-        // ===== СЛОГАН СНИЗУ =====
-        String subtitle = "Новая эра визуалов. Плавность и красота — Æon Vision.";
-        float subAlpha = Math.max(0, (displayProgress - 0.15f) / 0.5f);
-        if (subAlpha > 0) {
-            int subColor = ((int)(subAlpha * 180) << 24) | 0xFFFFFF;
-            int subWidth = client.textRenderer.getWidth(subtitle);
-            context.drawText(client.textRenderer, Text.literal(subtitle),
-                centerX - subWidth/2, barY + 30, subColor, false);
+        // ===== СЛОГАН =====
+        String tagline = "Новая эра визуалов. Плавность и красота — Æon Vision.";
+        float tagAlpha = Math.max(0, Math.min(1, (displayProgress - 0.1f) / 0.5f));
+        if (tagAlpha > 0.01f) {
+            int tagColor = ((int)(tagAlpha * 200) << 24) | 0xFFFFFF;
+            int tagWidth = client.textRenderer.getWidth(tagline);
+            context.drawText(client.textRenderer, Text.literal(tagline),
+                cx - tagWidth/2, barY + 28, tagColor, false);
         }
         
-        // ===== НЕ БЛОКИРУЕМ ЗАГРУЗКУ! =====
-        // Важно: НЕ вызываем ci.cancel() если загрузка завершена
-        if (displayProgress >= 0.99f) {
-            // Пропускаем оригинальный рендер когда загрузка почти завершена
-            ci.cancel();
-        } else {
-            ci.cancel();
-        }
+        // ===== ВЕРСИЯ МОДА =====
+        String version = "v1.0.0-alpha";
+        context.drawText(client.textRenderer, Text.literal(version),
+            width - client.textRenderer.getWidth(version) - 10, height - 15, 0x40FFFFFF, false);
     }
     
-    private void drawScaledText(DrawContext context, String text, int x, int y, float scale, int color) {
-        context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0);
-        context.getMatrices().scale(scale, scale, 1);
-        context.drawText(client.textRenderer, Text.literal(text), 0, 0, color, false);
-        context.getMatrices().pop();
+    // ===== ХЕЛПЕРЫ =====
+    
+    private void drawTextScaled(DrawContext ctx, String text, int x, int y, float scale, int color) {
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x, y, 0);
+        ctx.getMatrices().scale(scale, scale, 1);
+        ctx.drawText(client.textRenderer, Text.literal(text), 0, 0, color, false);
+        ctx.getMatrices().pop();
     }
     
-    private void drawThickLine(DrawContext context, int x1, int y1, int x2, int y2, int thickness, int color) {
+    private void drawLineBold(DrawContext ctx, int x1, int y1, int x2, int y2, float thick, int color) {
         int dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
         int sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1, err = dx - dy;
+        int r = (int)(thick / 2);
         
         while (true) {
-            for (int tx = -thickness/2; tx <= thickness/2; tx++) {
-                for (int ty = -thickness/2; ty <= thickness/2; ty++) {
-                    if (tx*tx + ty*ty <= (thickness/2)*(thickness/2)) {
-                        context.fill(x1 + tx, y1 + ty, x1 + tx + 1, y1 + ty + 1, color);
+            for (int tx = -r; tx <= r; tx++) {
+                for (int ty = -r; ty <= r; ty++) {
+                    if (tx*tx + ty*ty <= r*r) {
+                        ctx.fill(x1 + tx, y1 + ty, x1 + tx + 1, y1 + ty + 1, color);
                     }
                 }
             }
@@ -196,13 +240,13 @@ public class SplashScreenMixin {
         }
     }
     
-    private void drawCircleFill(DrawContext context, int cx, int cy, int r, int color) {
+    private void drawCircleFilled(DrawContext ctx, int cx, int cy, int r, int color) {
         for (int x = -r; x <= r; x++) {
             for (int y = -r; y <= r; y++) {
                 if (x*x + y*y <= r*r) {
-                    context.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
+                    ctx.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
                 }
             }
         }
     }
-        }
+                         }
