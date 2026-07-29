@@ -18,6 +18,10 @@ public class AeonVisionClient implements ClientModInitializer {
     public static final CosmeticManager COSMETICS = new CosmeticManager();
     public static final CompassOverlay COMPASS = new CompassOverlay();
     public static final CoordsOverlay COORDS = new CoordsOverlay();
+    public static final TimerUtil TIMER = new TimerUtil();
+    public static final NotesUtil NOTES = new NotesUtil();
+    public static final AutoTorchUtil AUTO_TORCH = new AutoTorchUtil();
+    public static final InventorySorter SORTER = new InventorySorter();
     
     // Клиент
     public static MinecraftClient MC;
@@ -40,6 +44,12 @@ public class AeonVisionClient implements ClientModInitializer {
         // Координаты
         HudRenderCallback.EVENT.register(COORDS::render);
         
+        // Таймер
+        HudRenderCallback.EVENT.register(TIMER::render);
+        
+        // Заметки
+        HudRenderCallback.EVENT.register(NOTES::render);
+        
         // Клиентский тик
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null && client.world != null) {
@@ -47,10 +57,11 @@ public class AeonVisionClient implements ClientModInitializer {
                 NIGHT_VISION.tick(client);
                 COSMETICS.tick(client);
                 COMPASS.tick(client);
+                AUTO_TORCH.tick(client);
             }
         });
         
-        // В конце рендера мира — косметика
+        // Рендер мира — косметика
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
             if (MC.player != null && AeonVisionMod.cosmeticEnabled) {
                 COSMETICS.renderWorld(context);
@@ -61,6 +72,7 @@ public class AeonVisionClient implements ClientModInitializer {
         AeonVisionMod.LOGGER.info("  ├── Watermark: {}", AeonVisionMod.watermarkEnabled ? "§a✓" : "§c✗");
         AeonVisionMod.LOGGER.info("  ├── HUD Panel: {}", AeonVisionMod.hudEnabled ? "§a✓" : "§c✗");
         AeonVisionMod.LOGGER.info("  ├── Cosmetics: {}", AeonVisionMod.cosmeticEnabled ? "§a✓" : "§c✗");
-        AeonVisionMod.LOGGER.info("  └── Utils: Zoom, NightVision, Compass, Coords");
+        AeonVisionMod.LOGGER.info("  ├── Utils: Zoom, NightVision, Compass, Coords, Timer, Notes, AutoTorch");
+        AeonVisionMod.LOGGER.info("  └── Inventory Sorter");
     }
 }
