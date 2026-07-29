@@ -10,12 +10,11 @@ public class WatermarkOverlay {
 
     private static final MinecraftClient MC = MinecraftClient.getInstance();
     private static float smoothFps = 0;
-    private static long time = 0;
+    public static int bgColor = 0x7010, bgAlpha = 0x80, textColor = 0xFFFFFF;
 
     public static void render(DrawContext context, RenderTickCounter tickCounter) {
         if (!AeonVisionMod.watermarkEnabled || MC.player == null) return;
         
-        time = System.currentTimeMillis();
         smoothFps += (MC.getCurrentFps() - smoothFps) * 0.1f;
         int fps = (int) smoothFps;
         
@@ -26,10 +25,11 @@ public class WatermarkOverlay {
         int tw = MC.textRenderer.getWidth(text);
         int x = cx - tw / 2;
         
-        // Стеклянный фон
-        context.fill(x - 7, y - 1, x + tw + 7, y + 13, 0x70101018);
+        // Фиолетовый фон (кастомный)
+        int bg = (bgAlpha << 24) | bgColor;
+        context.fill(x - 7, y - 1, x + tw + 7, y + 13, bg);
         
         // Текст
-        context.drawText(MC.textRenderer, Text.literal(text), x, y + 2, 0xFFFFFFFF, true);
+        context.drawText(MC.textRenderer, Text.literal(text), x, y + 2, textColor, true);
     }
 }
