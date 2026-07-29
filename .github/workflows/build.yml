@@ -1,39 +1,20 @@
-name: Build Æon Vision
+name: Build Neon Visuals — Neon Team-Midpoint
 
-on:
-  push:
-    branches: [main, master]
-  workflow_dispatch:
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-      
-      - name: Download Gradle 8.10
+
+      - name: Build
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip
-          unzip -q gradle-8.10-bin.zip
-          rm gradle-8.10-bin.zip
-      
-      - name: Build with Gradle 8.10
-        run: |
-          export GRADLE_HOME=$PWD/gradle-8.10
-          export PATH=$GRADLE_HOME/bin:$PATH
-          gradle --version
-          gradle build --no-daemon
-      
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ÆonVision-Build
-          path: build/libs/*.jar
+          chmod +x ./gradlew
+          ./gradlew build --stacktrace
