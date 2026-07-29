@@ -1,7 +1,6 @@
 package com.aeonvision.hud;
 
-import com.aeonvision.AeonVisionMod;
-import com.aeonvision.AeonVisionClient;
+import com.aeonvision.keybind.KeyBindManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -33,7 +32,6 @@ public class RadialHudScreen extends Screen {
     private int centerX, centerY;
     private int outerRadius = 90;
     private int innerRadius = 30;
-    private float hoverAngle = -1;
     private float time = 0;
 
     public RadialHudScreen() {
@@ -58,7 +56,7 @@ public class RadialHudScreen extends Screen {
             Sector s = sectors.get(i);
             s.centerX = centerX;
             s.centerY = centerY;
-            s.startAngle = i * anglePerSector - 90; // -90 чтобы начать сверху
+            s.startAngle = i * anglePerSector - 90;
             s.endAngle = (i + 1) * anglePerSector - 90;
         }
     }
@@ -87,7 +85,6 @@ public class RadialHudScreen extends Screen {
             context.drawText(textRenderer, Text.literal(hint),
                 centerX - hintWidth / 2, centerY + outerRadius + 20, 0xFFFFFFFF, true);
             
-            // Подсветка сектора при наведении
             context.drawText(textRenderer, Text.literal(hovered.icon),
                 centerX, centerY - 60, 0xFFFFFFFF, true);
         }
@@ -120,7 +117,6 @@ public class RadialHudScreen extends Screen {
             int x4 = centerX + (int)(Math.cos(a2) * innerRadius);
             int y4 = centerY + (int)(Math.sin(a2) * innerRadius);
             
-            // Заливка
             fillTriangle(context, x1, y1, x2, y2, x3, y3, baseColor);
             fillTriangle(context, x1, y1, x3, y3, x4, y4, baseColor);
         }
@@ -198,7 +194,6 @@ public class RadialHudScreen extends Screen {
     }
 
     private void openCosmetics() {
-        // Откроем меню косметики
         MC.setScreen(new com.aeonvision.ui.CosmeticScreen());
     }
     
@@ -211,7 +206,6 @@ public class RadialHudScreen extends Screen {
     }
     
     private void openWorlds() {
-        // Переход на экран выбора мира
         MC.setScreen(new com.aeonvision.ui.WorldManagerScreen());
     }
     
@@ -234,9 +228,9 @@ public class RadialHudScreen extends Screen {
         return false;
     }
 
-    // Utility methods
+    // === UTILITY METHODS ===
+
     private void fillTriangle(DrawContext context, int x1, int y1, int x2, int y2, int x3, int y3, int color) {
-        // Простая заливка треугольника через fill
         int minX = Math.min(x1, Math.min(x2, x3));
         int maxX = Math.max(x1, Math.max(x2, x3));
         int minY = Math.min(y1, Math.min(y2, y3));
@@ -269,10 +263,11 @@ public class RadialHudScreen extends Screen {
     private void drawCircle(DrawContext context, int cx, int cy, int r, int color) {
         for (int x = -r; x <= r; x++) {
             for (int y = -r; y <= r; y++) {
-                if (x * x + y * y <= r * r && x * x + y * y >= (r - 1) * (r - 1)) {
+                int dist = x * x + y * y;
+                if (dist <= r * r && dist >= (r - 1) * (r - 1)) {
                     context.fill(cx + x, cy + y, cx + x + 1, cy + y + 1, color);
                 }
             }
         }
     }
-          }
+    }
