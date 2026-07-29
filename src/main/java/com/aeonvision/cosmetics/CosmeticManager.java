@@ -81,16 +81,54 @@ public class CosmeticManager {
         killEffectRenderer.render(context);
     }
 
+    // ===== СЕТТЕРЫ =====
     public void setTrail(TrailType t) { activeTrail = t; }
     public void setAura(AuraType t) { activeAura = t; }
     public void setWings(WingType t) { activeWings = t; }
     public void setFootprints(FootprintType t) { activeFootprints = t; }
     public void setKillEffect(KillEffectType t) { activeKillEffect = t; }
+    public void setAuraColor(float r, float g, float b) { auraColor = new float[]{r,g,b}; }
+    public void setTrailColor(float r, float g, float b) { trailColor = new float[]{r,g,b}; }
+    
+    // ===== ГЕТТЕРЫ =====
     public TrailType getTrail() { return activeTrail; }
     public AuraType getAura() { return activeAura; }
     public WingType getWings() { return activeWings; }
     public FootprintType getFootprints() { return activeFootprints; }
     public KillEffectType getKillEffect() { return activeKillEffect; }
-    public void setAuraColor(float r, float g, float b) { auraColor = new float[]{r,g,b}; }
     public float[] getAuraColor() { return auraColor; }
-        }
+    
+    // ===== ПЕРЕКЛЮЧЕНИЕ ПО КРУГУ =====
+    public void nextTrail() {
+        TrailType[] values = TrailType.values();
+        int next = (activeTrail.ordinal() + 1) % values.length;
+        activeTrail = values[next];
+    }
+    
+    public void nextAura() {
+        AuraType[] values = AuraType.values();
+        int next = (activeAura.ordinal() + 1) % values.length;
+        activeAura = values[next];
+    }
+    
+    public void nextWings() {
+        WingType[] values = WingType.values();
+        int next = (activeWings.ordinal() + 1) % values.length;
+        activeWings = values[next];
+    }
+    
+    public void nextFootprints() {
+        FootprintType[] values = FootprintType.values();
+        int next = (activeFootprints.ordinal() + 1) % values.length;
+        activeFootprints = values[next];
+    }
+    
+    public void nextKillEffect() {
+        KillEffectType[] values = KillEffectType.values();
+        int next = (activeKillEffect.ordinal() + 1) % values.length;
+        activeKillEffect = values[next];
+    }
+    
+    public void toggleCosmetics() { cosmeticsEnabled = !cosmeticsEnabled; }
+    public boolean isEnabled() { return cosmeticsEnabled; }
+    }
